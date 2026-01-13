@@ -1,3 +1,10 @@
+"""
+Данный файл содержит валидатор аутентификации, а также схемы
+пользователя, задач, колонок и досок, соответствующих
+классам из UML-Диаграммы класов.
+"""
+
+
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from typing import Optional, List, Any
 from passlib.context import CryptContext
@@ -8,7 +15,7 @@ import bcrypt
 if not hasattr(bcrypt, "__about__"):
     bcrypt.__about__ = type('About', (object,), {'__version__': bcrypt.__version__})
 
-# --- SECURITY CONFIG ---
+# --- SECURITY CONFIG (Конфигурация безопасности)---
 SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -30,7 +37,7 @@ class AuthHandler:
         to_encode.update({"exp": expire})
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# --- SCHEMAS ---
+# --- USER SCHEMAS (Схемы пользователя) ---
 
 class UserBase(BaseModel):
     username: str
@@ -43,7 +50,7 @@ class UserRead(UserBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
-# --- TASK SCHEMAS ---
+# --- TASK SCHEMAS (Схемы задач)---
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -75,7 +82,7 @@ class TaskRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-# --- COLUMN SCHEMAS ---
+# --- COLUMN SCHEMAS (Схемы колонок) ---
 class ColumnCreate(BaseModel):
     title: str
     order: Optional[int] = 0
@@ -90,7 +97,7 @@ class ColumnRead(BaseModel):
     tasks: List[TaskRead] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- BOARD SCHEMAS ---
+# --- BOARD SCHEMAS (Схемы досок) ---
 class BoardRead(BaseModel):
     id: int
     title: str

@@ -5,6 +5,11 @@ from typing import List
 from ..models.database_and_models import Board, Column, Task, TaskPriority, User
 
 class KanbanService:
+    """
+    Класс KanbanService представляет собой сервисный слой с бизнес логикой, содержащей набор статических
+    асинхронных методов для работы с данными: create_board, get_user_boards, create_task, update_task_status и т.д.
+    Отделяет техническую логику API от логики работы с базой данных. 
+    """
     @staticmethod
     async def get_user_boards(db: AsyncSession, user_id: int) -> List[Board]:
         result = await db.execute(
@@ -47,7 +52,7 @@ class KanbanService:
         
         return True, "Success"
 
-    # --- COLUMN MANAGEMENT ---
+    # --- COLUMN MANAGEMENT (Менеджмент колонок) ---
     @staticmethod
     async def create_column(db: AsyncSession, board_id: int, title: str, order: int):
         new_col = Column(title=title, order=order, board_id=board_id)
@@ -77,7 +82,7 @@ class KanbanService:
         await db.commit()
         return True
 
-    # --- TASK MANAGEMENT ---
+    # --- TASK MANAGEMENT (Менеджмент задач) ---
     @staticmethod
     async def create_task(db: AsyncSession, task_data):
         try:

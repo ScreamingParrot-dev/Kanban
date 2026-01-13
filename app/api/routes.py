@@ -1,3 +1,12 @@
+"""
+api.routes отвечает за определение путей (endpoints), по которым фронтенд коннектится с бэкендом.
+Содержит определения HTTP-методов (GET, POST, PUT, DELETE) для конкретных URL, таких как /register, /boards или /tasks. 
+Он использует зависимости (Depends) для получения доступа к сессии базы данных.
+Служит диспетчером запросов. Он принимает данные от пользователя (через Pydantic-схемы), 
+вызывает соответствующие методы из сервисного слоя и возвращает ответ клиенту. 
+Здесь сосредоточена логика общения внешнего мира с приложением.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select

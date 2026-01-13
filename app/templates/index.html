@@ -260,8 +260,8 @@
             card.ondragstart = (e) => e.dataTransfer.setData('text', task.id);
             
             // Маппинг приоритетов для стилей
-            const pClass = `priority-${(task.priority || 'medium').toLowerCase()}`;
-            const pLabel = task.priority === 'High' ? 'Высокий' : task.priority === 'Low' ? 'Низкий' : 'Средний';
+            const pClass = `priority-${(task.priority || 'MEDIUM').toUpperCase()}`;
+            const pLabel = task.priority === 'HIGH' ? 'Высокий' : task.priority === 'LOW' ? 'Низкий' : 'Средний';
 
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-2">

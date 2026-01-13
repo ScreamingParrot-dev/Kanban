@@ -1,9 +1,16 @@
+"""
+Данный файл содержит конфигурацию подключения к БД, описание констант enum,
+смежную таблицу многие ко многим для многопользовательского доступа к досками,
+а также модели для создания таблиц в базе данных.
+"""
+
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, String, Integer, Text, Enum as SqlEnum, Table, Column as SqlColumn
 import enum
 
-# --- DATABASE CONFIGURATION ---
+# --- DATABASE CONFIGURATION (Конфигурация БД) ---
 DATABASE_URL = "sqlite+aiosqlite:///./kanban.db"
 
 engine = create_async_engine(DATABASE_URL, echo=True)
@@ -12,13 +19,13 @@ async_session = async_sessionmaker(engine, expire_on_commit=False)
 class Base(DeclarativeBase):
     pass
 
-# --- ENUMS ---
+# --- ENUMS (Список констант enum для приоритетов) ---
 class TaskPriority(enum.Enum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
 
-# Таблица связей для многопользовательского доступа к доскам (многие-ко-многим)
+# --- Таблица связей для многопользовательского доступа к доскам (многие-ко-многим) ---
 board_members = Table(
     "board_members",
     Base.metadata,
@@ -26,7 +33,7 @@ board_members = Table(
     SqlColumn("board_id", ForeignKey("boards.id"), primary_key=True),
 )
 
-# --- MODELS ---
+# --- MODELS (Модели таблиц) ---
 
 class User(Base):
     __tablename__ = "users"
