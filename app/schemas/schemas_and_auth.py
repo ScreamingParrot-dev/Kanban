@@ -3,6 +3,10 @@ from typing import Optional, List, Any
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import jwt
+import bcrypt
+
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type('About', (object,), {'__version__': bcrypt.__version__})
 
 # --- SECURITY CONFIG ---
 SECRET_KEY = "your-secret-key-here"
