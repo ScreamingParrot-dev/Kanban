@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система управления проектами</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('/static/media/background-image.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }
+        .kanban-column { min-height: 75vh; background: hsl(0, 0%, 100%, 0.2); border-radius: 12px; border: 3px solid hsl(0, 0%, 100%, 0.3); backdrop-filter: blur(2px); box-shadow: inset 0 0 8px 1px hsl(0, 0%, 100%, 0.3);width: 320px; flex-shrink: 0; transition: background 0.2s; }
+        .kanban-column.drag-over { background-color: #e5e7eb; border: 2px dashed #3b82f6; }
+        .task-card { background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; transition: transform 0.1s; }
+        .task-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
+        .board-container { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-900 font-sans">
+    <nav class="bg-white/90 backdrop-blur border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white font-bold">🥱</div>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight hidden md:block">Система управления проектами</h1>
+            </div>
+            <div id="board-selector-container" class="hidden">
+                <select id="board-select" onchange="switchBoard()" class="bg-slate-100 border-none text-slate-700 text-sm rounded-lg block p-2.5 font-bold">
+                    <option>Загрузка...</option>
+                </select>
+            </div>
+        </div>
+        <div id="auth-section" class="flex items-center gap-4">
+            <div id="user-profile" class="hidden flex items-center gap-3">
+                <button onclick="toggleModal('invite-modal')" class="bg-slate-100 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-200 flex items-center gap-1">
+                    Пригласить
+                </button>
+                <span id="username-label" class="text-sm font-medium text-slate-600 hidden md:inline"></span>
+                <button onclick="logout()" class="text-sm text-red-600 hover:underline">Выйти</button>
+            </div>
+            <button onclick="toggleModal('auth-modal')" id="login-btn" class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">Войти</button>
+        </div>
+    </nav>
+
+    <main class="p-8">
+        <div id="main-content" class="hidden">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 id="board-title" class="text-3xl font-extrabold text-white">Загрузка...</h2>
+                    <p class="text-white text-sm mt-1 drop-shadow-md">Перетаскивайте карточки для изменения статуса</p>
+                </div>
+                <div class="flex gap-2">
+                     <button id="add-col-btn" onclick="openCreateColumnModal()" class="hidden bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl shadow hover:bg-slate-300 transition font-bold">
+                        + Колонка
+                    </button>
+                    <button onclick="openCreateTaskModal()" class="bg-emerald-500 text-white px-6 py-2.5 rounded-xl shadow-lg hover:bg-emerald-600 transition font-bold">
+                        + Задача
+                    </button>
+                </div>
+            </div>
+            <div class="board-container" id="board-columns">
+                <!-- Колонки рендерятся тут -->
+            </div>
+        </div>
+
+        <div id="welcome-message" class="text-center py-20">
+            <h2 class="text-4xl font-bold text-white mb-4 drop-shadow-lg">Система управления проектами</h2>
+            <p class="text-white max-w-md mx-auto drop-shadow-md">Войдите, чтобы начать.</p>
+        </div>
+    </main>
+
+    <!-- Модалка авторизации -->
+    <div id="auth-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl relative">
+            <h3 class="text-2xl font-bold mb-6 text-slate-800">Вход / Регистрация</h3>
+            <div class="space-y-4">
+                <input type="text" id="auth-username" placeholder="Имя пользователя" class="w-full border p-3 rounded-xl">
+                <input type="email" id="auth-email" placeholder="Email" class="w-full border p-3 rounded-xl">
+                <input type="password" id="auth-password" placeholder="Пароль" class="w-full border p-3 rounded-xl">
+                <div class="flex gap-2">
+                    <button onclick="submitAuth('login')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Войти</button>
+                    <button onclick="submitAuth('register')" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold">Регистрация</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка задачи -->
+    <div id="task-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-2xl w-[450px] shadow-2xl relative">
+            <h3 class="text-2xl font-bold mb-6 text-slate-800" id="task-modal-title">Задача</h3>
+            <input type="hidden" id="task-id">
+            <div class="space-y-4">
+                <input type="text" id="task-title" placeholder="Заголовок" class="w-full border p-3 rounded-xl font-bold">
+                <textarea id="task-desc" placeholder="Описание" class="w-full border p-3 rounded-xl h-32"></textarea>
+                <select id="task-priority" class="w-full border p-3 rounded-xl bg-white">
+                    <option value="Low">Низкий</option>
+                    <option value="Medium">Средний</option>
+                    <option value="High">Высокий</option>
+                </select>
+                <div class="flex gap-2 pt-2" id="task-modal-buttons"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка колонки -->
+    <div id="column-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl relative">
+            <h3 class="text-xl font-bold mb-6 text-slate-800" id="col-modal-title">Колонка</h3>
+            <input type="hidden" id="col-id">
+            <div class="space-y-4">
+                <input type="text" id="col-title" placeholder="Название колонки" class="w-full border p-3 rounded-xl font-bold">
+                <div class="flex gap-2 pt-2" id="col-modal-buttons"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка Приглашения -->
+    <div id="invite-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 text-slate-800">Пригласить участника</h3>
+            <input type="email" id="invite-email" placeholder="user@example.com" class="w-full border p-3 rounded-xl mb-4">
+            <button onclick="sendInvite()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = JSON.parse(localStorage.getItem('kanban_user'));
+        let boards = [];
+        let currentBoard = null;
+
+        window.onload = () => { if (currentUser) updateUI(); };
+
+        function toggleModal(id) { document.getElementById(id).classList.toggle('active'); }
+        function closeModalOnOutside(event, elem) { if (event.target === elem) elem.classList.remove('active'); }
+
+        async function submitAuth(type) {
+            const username = document.getElementById('auth-username').value;
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const response = await fetch(`/api/v1/${type}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+            if (response.ok) {
+                currentUser = await response.json();
+                localStorage.setItem('kanban_user', JSON.stringify(currentUser));
+                updateUI();
+                toggleModal('auth-modal');
+            } else { alert('Ошибка авторизации'); }
+        }
+
+        function logout() { localStorage.removeItem('kanban_user'); location.reload(); }
+
+        function updateUI() {
+            document.getElementById('welcome-message').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('user-profile').classList.remove('hidden');
+            document.getElementById('login-btn').classList.add('hidden');
+            document.getElementById('board-selector-container').classList.remove('hidden');
+            document.getElementById('username-label').innerText = currentUser.username;
+            loadBoards(false);
+        }
+
+        // --- Управление досками ---
+        async function loadBoards(stayOnCurrent = true) {
+            const response = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
+            boards = await response.json();
+            const select = document.getElementById('board-select');
+            select.innerHTML = '';
+            
+            if (boards.length > 0) {
+                boards.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b.id; opt.text = b.title + (b.owner_id !== currentUser.id ? ' (shared)' : '');
+                    select.appendChild(opt);
+                });
+                
+                if (stayOnCurrent && currentBoard) {
+                    const found = boards.find(b => b.id === currentBoard.id);
+                    currentBoard = found || boards[0];
+                } else {
+                    currentBoard = boards[0];
+                }
+                
+                select.value = currentBoard.id;
+                renderBoard(currentBoard);
+            }
+        }
+
+        function switchBoard() {
+            const boardId = parseInt(document.getElementById('board-select').value);
+            currentBoard = boards.find(b => b.id === boardId);
+            renderBoard(currentBoard);
+        }
+
+        async function sendInvite() {
+            if (!currentBoard) return;
+            const email = document.getElementById('invite-email').value;
+            const response = await fetch(`/api/v1/boards/${currentBoard.id}/invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (response.ok) { alert('Отправлено!'); toggleModal('invite-modal'); }
+            else { alert('Ошибка при приглашении'); }
+        }
+
+        // --- Рендеринг ---
+        function renderBoard(board) {
+            document.getElementById('board-title').innerText = board.title;
+            const container = document.getElementById('board-columns');
+            container.innerHTML = '';
+
+            // Проверка прав владельца
+            const isOwner = board.owner_id === currentUser.id;
+            const addColBtn = document.getElementById('add-col-btn');
+            if (isOwner) addColBtn.classList.remove('hidden');
+            else addColBtn.classList.add('hidden');
+
+            // Рендер колонок
+            board.columns.sort((a,b) => a.order - b.order).forEach(col => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'kanban-column p-4';
+                colDiv.setAttribute('ondragover', 'allowDrop(event)');
+                colDiv.setAttribute('ondragleave', 'handleDragLeave(event)');
+                colDiv.setAttribute('ondrop', `drop(event, ${col.id})`); // Используем ID БД напрямую
+                colDiv.setAttribute('data-db-id', col.id);
+
+                // Заголовок колонки
+                const headerHtml = isOwner 
+                    ? `<span class="text-xs font-bold text-slate-600 uppercase tracking-widest cursor-pointer hover:text-indigo-600" onclick="openEditColModal(${col.id}, '${col.title}')">${col.title} ✎</span>`
+                    : `<span class="text-xs font-bold text-slate-600 uppercase tracking-widest">${col.title}</span>`;
+
+                colDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-4 column-header">
+                        ${headerHtml}
+                        <span class="bg-white/50 text-slate-700 text-[10px] px-2 py-0.5 rounded-full">${col.tasks.length}</span>
+                    </div>
+                    <div id="col-content-${col.id}" class="space-y-3 min-h-[500px]"></div>
+                `;
+                container.appendChild(colDiv);
+
+                col.tasks.forEach(task => renderTaskCard(task, col.id));
+            });
+        }
+
+        function renderTaskCard(task, colId) {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+            card.draggable = true;
+            card.id = `task-${task.id}`;
+            card.onclick = () => openEditTaskModal(task);
+            card.ondragstart = (e) => e.dataTransfer.setData('text', task.id);
+            
+            // Маппинг приоритетов для стилей
+            const pClass = `priority-${(task.priority || 'medium').toLowerCase()}`;
+            const pLabel = task.priority === 'High' ? 'Высокий' : task.priority === 'Low' ? 'Низкий' : 'Средний';
+
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase ${pClass}">${pLabel}</span>
+                </div>
+                <div class="font-bold text-slate-800">${task.title}</div>
+                <div class="text-sm text-slate-500 mt-1 line-clamp-2">${task.description || ''}</div>
+            `;
+            document.getElementById(`col-content-${colId}`).appendChild(card);
+        }
+
+        // --- Задачи (CRUD) ---
+        function openCreateTaskModal() {
+            if(!currentBoard || currentBoard.columns.length === 0) return alert('Создайте колонку!');
+            document.getElementById('task-modal-title').innerText = 'Новая задача';
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-modal-buttons').innerHTML = `<button onclick="saveTask()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать</button>`;
+            toggleModal('task-modal');
+        }
+
+        function openEditTaskModal(task) {
+            document.getElementById('task-modal-title').innerText = 'Редактировать';
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-desc').value = task.description || '';
+            document.getElementById('task-modal-buttons').innerHTML = `
+                <button onclick="updateTask()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
+                <button onclick="deleteTask()" class="flex-1 bg-red-100 text-red-600 py-3 rounded-xl font-bold">Удалить</button>`;
+            toggleModal('task-modal');
+        }
+
+        async function saveTask() {
+            const body = {
+                title: document.getElementById('task-title').value,
+                description: document.getElementById('task-desc').value,
+                priority: document.getElementById('task-priority').value,
+                column_id: currentBoard.columns[0].id // Всегда в первую колонку
+            };
+            await fetch('/api/v1/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            toggleModal('task-modal'); loadBoards(true); // stayOnCurrent = true
+        }
+
+        async function updateTask() {
+            const taskId = document.getElementById('task-id').value;
+            const body = {
+                title: document.getElementById('task-title').value,
+                description: document.getElementById('task-desc').value,
+                priority: document.getElementById('task-priority').value
+            };
+            await fetch(`/api/v1/tasks/${taskId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            toggleModal('task-modal'); loadBoards(true);
+        }
+
+        async function deleteTask() {
+            const taskId = document.getElementById('task-id').value;
+            if(!confirm('Удалить?')) return;
+            await fetch(`/api/v1/tasks/${taskId}`, { method: 'DELETE' });
+            toggleModal('task-modal'); loadBoards(true);
+        }
+
+        // --- Колонки (CRUD) ---
+        function openCreateColumnModal() {
+            document.getElementById('col-modal-title').innerText = 'Новая колонка';
+            document.getElementById('col-title').value = '';
+            document.getElementById('col-modal-buttons').innerHTML = `<button onclick="saveColumn()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать</button>`;
+            toggleModal('column-modal');
+        }
+
+        function openEditColModal(id, title) {
+            document.getElementById('col-modal-title').innerText = 'Редактировать колонку';
+            document.getElementById('col-id').value = id;
+            document.getElementById('col-title').value = title;
+            document.getElementById('col-modal-buttons').innerHTML = `
+                <button onclick="updateColumn()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
+                <button onclick="deleteColumn()" class="flex-1 bg-red-100 text-red-600 py-3 rounded-xl font-bold">Удалить</button>`;
+            toggleModal('column-modal');
+        }
+
+        async function saveColumn() {
+            const title = document.getElementById('col-title').value;
+            const order = currentBoard.columns.length;
+            await fetch(`/api/v1/boards/${currentBoard.id}/columns?user_id=${currentUser.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, order })
+            });
+            toggleModal('column-modal'); loadBoards(true);
+        }
+
+        async function updateColumn() {
+            const id = document.getElementById('col-id').value;
+            const title = document.getElementById('col-title').value;
+            await fetch(`/api/v1/columns/${id}?user_id=${currentUser.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            toggleModal('column-modal'); loadBoards(true);
+        }
+
+        async function deleteColumn() {
+            const id = document.getElementById('col-id').value;
+            if(!confirm('Удалить колонку и все задачи в ней?')) return;
+            await fetch(`/api/v1/columns/${id}?user_id=${currentUser.id}`, { method: 'DELETE' });
+            toggleModal('column-modal'); loadBoards(true);
+        }
+
+        // --- Drag & Drop ---
+        function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+        function handleDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
+        async function drop(ev, colId) {
+            ev.preventDefault();
+            ev.currentTarget.classList.remove('drag-over');
+            const taskId = ev.dataTransfer.getData('text');
+            await fetch(`/api/v1/tasks/${taskId}?column_id=${colId}`, { method: 'PATCH' });
+            loadBoards(true);
+        }
+    </script>
+</body>
+</html>
