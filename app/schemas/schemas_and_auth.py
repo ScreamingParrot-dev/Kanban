@@ -15,7 +15,7 @@ import bcrypt
 if not hasattr(bcrypt, "__about__"):
     bcrypt.__about__ = type('About', (object,), {'__version__': bcrypt.__version__})
 
-# --- SECURITY CONFIG (Конфигурация безопасности)---
+# --- SECURITY CONFIG ---
 SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -24,7 +24,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class AuthHandler:
     @staticmethod
     def verify_password(plain_password, hashed_password):
-        return pwd_context.verify(plain_password[:72], hashed_password)
+        try:
+            return pwd_context.verify(plain_password[:72], hashed_password)
+        except Exception:
+            return False
 
     @staticmethod
     def get_password_hash(password):
@@ -37,8 +40,7 @@ class AuthHandler:
         to_encode.update({"exp": expire})
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# --- USER SCHEMAS (Схемы пользователя) ---
-
+# --- USER SCHEMAS ---
 class UserBase(BaseModel):
     username: str
     email: EmailStr
@@ -50,7 +52,21 @@ class UserRead(UserBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
-# --- TASK SCHEMAS (Схемы задач)---
+# --- BOARD MEMBER SCHEMA (Роли) ---
+class BoardMemberRead(BaseModel):
+    user: UserRead
+    role: Any
+
+    @field_validator('role', mode='before')
+    @classmethod
+    def transform_role(cls, v: Any) -> str:
+        if hasattr(v, 'value'):
+            return str(v.value)
+        return str(v)
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- TASK SCHEMAS ---
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -58,11 +74,13 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     column_id: int
+    assignee_id: Optional[int] = None # Добавили исполнителя
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[str] = None
+    assignee_id: Optional[int] = None
 
 class TaskRead(BaseModel):
     id: int
@@ -71,8 +89,8 @@ class TaskRead(BaseModel):
     priority: Any
     column_id: int
     assignee_id: Optional[int] = None
+    assignee: Optional[UserRead] = None # Данные исполнителя
     
-    # Валидатор: преобразуем Enum или любой объект в строку
     @field_validator('priority', mode='before')
     @classmethod
     def transform_priority(cls, v: Any) -> str:
@@ -82,7 +100,7 @@ class TaskRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-# --- COLUMN SCHEMAS (Схемы колонок) ---
+# --- COLUMN SCHEMAS ---
 class ColumnCreate(BaseModel):
     title: str
     order: Optional[int] = 0
@@ -97,14 +115,16 @@ class ColumnRead(BaseModel):
     tasks: List[TaskRead] = []
     model_config = ConfigDict(from_attributes=True)
 
-# --- BOARD SCHEMAS (Схемы досок) ---
+# --- BOARD SCHEMAS ---
 class BoardRead(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
-    owner_id: int
+    background_url: Optional[str] = None
+    member_associations: List[BoardMemberRead] = [] # Теперь тут хранятся участники и их роли
     columns: List[ColumnRead] = []
     model_config = ConfigDict(from_attributes=True)
 
 class MemberInvite(BaseModel):
     email: EmailStr
+    role: str = "MEMBER" # Роль при приглашении

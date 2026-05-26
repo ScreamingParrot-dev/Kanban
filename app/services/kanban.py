@@ -2,28 +2,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List
-from ..models.database_and_models import Board, Column, Task, TaskPriority, User
+from ..models.database_and_models import Board, Column, Task, TaskPriority, User, BoardMember, BoardRole
 
 class KanbanService:
-    """
-    Класс KanbanService представляет собой сервисный слой с бизнес логикой, содержащей набор статических
-    асинхронных методов для работы с данными: create_board, get_user_boards, create_task, update_task_status и т.д.
-    Отделяет техническую логику API от логики работы с базой данных. 
-    """
     @staticmethod
     async def get_user_boards(db: AsyncSession, user_id: int) -> List[Board]:
+        # Получаем доски, где пользователь является участником (любая роль)
         result = await db.execute(
             select(Board)
-            .where((Board.owner_id == user_id) | (Board.members.any(id=user_id)))
-            .options(selectinload(Board.columns).selectinload(Column.tasks))
+            .join(BoardMember)
+            .where(BoardMember.user_id == user_id)
+            .options(
+                selectinload(Board.columns).selectinload(Column.tasks).selectinload(Task.assignee),
+                selectinload(Board.member_associations).selectinload(BoardMember.user)
+            )
         )
         return result.scalars().unique().all()
 
     @staticmethod
     async def create_board(db: AsyncSession, title: str, user_id: int):
-        new_board = Board(title=title, owner_id=user_id)
+        new_board = Board(title=title)
         db.add(new_board)
-        await db.flush()
+        await db.flush() # Получаем ID доски
+
+        # Создаем связь с ролью ВЛАДЕЛЕЦ
+        owner_assoc = BoardMember(user_id=user_id, board_id=new_board.id, role=BoardRole.OWNER)
+        db.add(owner_assoc)
 
         default_columns = ["В плане", "В работе", "Готово"]
         for index, col_title in enumerate(default_columns):
@@ -35,20 +39,29 @@ class KanbanService:
         return new_board
 
     @staticmethod
-    async def invite_member(db: AsyncSession, board_id: int, email: str):
-        board_res = await db.execute(select(Board).where(Board.id == board_id).options(selectinload(Board.members)))
-        board = board_res.scalar_one_or_none()
-        if not board:
-            return None, "Board not found"
-            
+    async def invite_member(db: AsyncSession, board_id: int, email: str, role_str: str):
+        # Ищем пользователя по email
         user_res = await db.execute(select(User).where(User.email == email))
         user = user_res.scalar_one_or_none()
         if not user:
             return None, "User not found"
 
-        if user not in board.members and user.id != board.owner_id:
-            board.members.append(user)
-            await db.commit()
+        # Проверяем, нет ли его уже в доске
+        member_res = await db.execute(
+            select(BoardMember).where(BoardMember.board_id == board_id, BoardMember.user_id == user.id)
+        )
+        existing_member = member_res.scalar_one_or_none()
+        if existing_member:
+            return None, "User is already in the board"
+
+        try:
+            role_enum = BoardRole[role_str.upper()]
+        except KeyError:
+            role_enum = BoardRole.MEMBER
+
+        new_member = BoardMember(user_id=user.id, board_id=board_id, role=role_enum)
+        db.add(new_member)
+        await db.commit()
         
         return True, "Success"
 
