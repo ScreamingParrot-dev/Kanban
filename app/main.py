@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
 from app.api.routes import router as kanban_router
@@ -24,14 +23,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Kanban Prototype", lifespan=lifespan)
 
-# Настройка шаблонов и статики
+# Создаем директории для загрузки файлов
+os.makedirs("app/static/media", exist_ok=True)
+os.makedirs("app/static/uploads", exist_ok=True)
+os.makedirs("app/templates", exist_ok=True)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/")
 async def read_root(request: Request):
-    # Рендеринг главной страницы интерфейса
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Подключение API маршрутов
 app.include_router(kanban_router, prefix="/api/v1")

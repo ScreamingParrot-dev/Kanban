@@ -6,126 +6,335 @@
     <title>Система управления проектами</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-image: url('/static/media/background-image.jpg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
+        body { 
+            background-color: #0f172a; 
+            color: white; 
+            background-image: url('/static/media/background-image.jpg'); 
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; 
         }
-        .kanban-column { min-height: 75vh; background: hsl(0, 0%, 100%, 0.2); border-radius: 12px; border: 3px solid hsl(0, 0%, 100%, 0.3); backdrop-filter: blur(2px); box-shadow: inset 0 0 8px 1px hsl(0, 0%, 100%, 0.3);width: 320px; flex-shrink: 0; transition: background 0.2s; }
-        .kanban-column.drag-over { background-color: #e5e7eb; border: 2px dashed #3b82f6; }
-        .task-card { background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; transition: transform 0.1s; }
-        .task-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
-        .board-container { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+        body::before { 
+            content: ""; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(15, 23, 42, 0.7); 
+            z-index: -1; 
+        }
+        .kanban-column { 
+            min-height: 75vh; 
+            background: hsl(0, 0%, 100%, 0.15); 
+            border-radius: 12px; 
+            border: 1px solid hsl(0, 0%, 100%, 0.2); 
+            backdrop-filter: blur(8px); 
+            width: 320px; 
+            flex-shrink: 0; 
+            transition: background 0.2s; 
+        }
+        .kanban-column.drag-over { 
+            background-color: rgba(229, 231, 235, 0.3); 
+            border: 2px dashed #3b82f6; 
+        }
+        .task-card { 
+            background: white; 
+            color: #1e293b; 
+            padding: 16px; 
+            border-radius: 8px; 
+            margin-bottom: 12px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            border: 1px solid #e5e7eb; 
+            transition: transform 0.1s; 
+        }
+        .task-card:hover { 
+            transform: translateY(-3px); 
+            border-color: #3b82f6; 
+        }
+        .board-container { 
+            display: flex; 
+            gap: 20px; 
+            overflow-x: auto; 
+            padding-bottom: 20px; 
+        }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.6); 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 100; 
+            backdrop-filter: blur(4px); 
+        }
         .modal.active { display: flex; }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        
+        .priority-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+        .priority-high { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .priority-medium { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .priority-low { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        
+        .board-card { 
+            background: rgba(255, 255, 255, 0.1); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 16px; 
+            padding: 24px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            backdrop-filter: blur(10px); 
+        }
+        .board-card:hover { 
+            background: rgba(255, 255, 255, 0.15); 
+            transform: translateY(-4px); 
+            border-color: #3b82f6; 
+        }
+        
+        #user-tooltip { transition: opacity 0.2s; }
+        .avatar-circle { 
+            width: 32px; 
+            height: 32px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            color: white; 
+            background: linear-gradient(135deg, #6366f1, #8b5cf6); 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            cursor: pointer; 
+            background-size: cover; 
+            background-position: center;
+        }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
     </style>
 </head>
-<body class="min-h-screen text-slate-900 font-sans">
-    <nav class="bg-white/90 backdrop-blur border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+<body class="min-h-screen font-sans">
+    
+    <!-- Навигация -->
+    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white font-bold">🥱</div>
-                <h1 class="text-xl font-bold text-slate-800 tracking-tight hidden md:block">Система управления проектами</h1>
-            </div>
-            <div id="board-selector-container" class="hidden">
-                <select id="board-select" onchange="switchBoard()" class="bg-slate-100 border-none text-slate-700 text-sm rounded-lg block p-2.5 font-bold">
-                    <option>Загрузка...</option>
-                </select>
+            <a href="#/dashboard" class="flex items-center gap-3 cursor-pointer">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/30">K</div>
+                <h1 class="text-xl font-bold tracking-tight hidden md:block">KanbanFlow</h1>
+            </a>
+            <div id="board-nav-tools" class="hidden flex items-center gap-4 ml-6 border-l border-slate-700 pl-6">
+                <a href="#/dashboard" class="text-slate-300 hover:text-white text-sm font-medium flex items-center gap-1">← Все проекты</a>
             </div>
         </div>
         <div id="auth-section" class="flex items-center gap-4">
-            <div id="user-profile" class="hidden flex items-center gap-3">
-                <button onclick="toggleModal('invite-modal')" class="bg-slate-100 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-200 flex items-center gap-1">
-                    Пригласить
-                </button>
-                <span id="username-label" class="text-sm font-medium text-slate-600 hidden md:inline"></span>
-                <button onclick="logout()" class="text-sm text-red-600 hover:underline">Выйти</button>
+            <div id="user-profile" class="hidden flex items-center gap-4">
+                <a href="#/profile" class="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 rounded-xl transition">
+                    <div class="text-right hidden md:block">
+                        <div id="username-label" class="text-sm font-bold text-white"></div>
+                        <div id="user-email-label" class="text-xs text-slate-400"></div>
+                    </div>
+                    <div id="nav-avatar" class="avatar-circle"></div>
+                </a>
+                <button onclick="logout()" class="bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500/30 transition">Выйти</button>
             </div>
-            <button onclick="toggleModal('auth-modal')" id="login-btn" class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">Войти</button>
+            <button onclick="toggleModal('auth-modal')" id="login-btn" class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition">Войти</button>
         </div>
     </nav>
 
-    <main class="p-8">
-        <div id="main-content" class="hidden">
-            <div class="flex justify-between items-center mb-8">
+    <main class="p-8 relative">
+        <!-- Всплывающая подсказка -->
+        <div id="user-tooltip" class="absolute hidden bg-white text-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 z-50 w-64 pointer-events-none opacity-0">
+            <div class="flex items-center gap-3 mb-3">
+                <div id="tt-avatar" class="avatar-circle w-12 h-12 text-lg"></div>
                 <div>
-                    <h2 id="board-title" class="text-3xl font-extrabold text-white">Загрузка...</h2>
-                    <p class="text-white text-sm mt-1 drop-shadow-md">Перетаскивайте карточки для изменения статуса</p>
-                </div>
-                <div class="flex gap-2">
-                     <button id="add-col-btn" onclick="openCreateColumnModal()" class="hidden bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl shadow hover:bg-slate-300 transition font-bold">
-                        + Колонка
-                    </button>
-                    <button onclick="openCreateTaskModal()" class="bg-emerald-500 text-white px-6 py-2.5 rounded-xl shadow-lg hover:bg-emerald-600 transition font-bold">
-                        + Задача
-                    </button>
+                    <div id="tt-name" class="font-bold leading-tight">Name</div>
+                    <div id="tt-email" class="text-xs text-slate-500">email</div>
                 </div>
             </div>
-            <div class="board-container" id="board-columns">
-                <!-- Колонки рендерятся тут -->
-            </div>
+            <div id="tt-desc" class="text-sm text-slate-600 border-t pt-2 border-slate-100"></div>
         </div>
 
-        <div id="welcome-message" class="text-center py-20">
-            <h2 class="text-4xl font-bold text-white mb-4 drop-shadow-lg">Система управления проектами</h2>
-            <p class="text-white max-w-md mx-auto drop-shadow-md">Войдите, чтобы начать.</p>
+        <div id="views-container">
+            <!-- ПРИВЕТСТВЕННЫЙ ЭКРАН -->
+            <div id="view-welcome" class="view-section text-center py-20">
+                <h2 class="text-5xl font-black text-white mb-6 drop-shadow-lg tracking-tight">Управляйте проектами легко</h2>
+                <p class="text-slate-300 max-w-lg mx-auto text-lg mb-8">Войдите в систему или создайте аккаунт.</p>
+                <button onclick="toggleModal('auth-modal')" class="bg-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg hover:bg-indigo-500 transition">Начать работу</button>
+            </div>
+
+            <!-- ДАШБОРД -->
+            <div id="view-dashboard" class="view-section max-w-6xl mx-auto">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <h2 class="text-4xl font-black text-white mb-2">Ваши проекты</h2>
+                    </div>
+                    <button onclick="openCreateBoardModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-indigo-500 transition font-bold">+ Новая доска</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="boards-grid"></div>
+            </div>
+
+            <!-- ПРОФИЛЬ -->
+            <div id="view-profile" class="view-section max-w-3xl mx-auto bg-slate-900/80 backdrop-blur border border-slate-700 p-8 rounded-3xl shadow-2xl">
+                <div class="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+                    <h2 class="text-3xl font-black text-white">Профиль</h2>
+                    <button onclick="window.history.back()" class="text-slate-400 hover:text-white px-4 py-2 border border-slate-600 rounded-lg text-sm">← Назад</button>
+                </div>
+                <div class="flex flex-col md:flex-row gap-8">
+                    <div class="flex flex-col items-center space-y-4 md:w-1/3">
+                        <div id="profile-avatar-preview" class="avatar-circle w-32 h-32 text-5xl shadow-xl"></div>
+                        <input type="file" id="avatar-upload" class="hidden" accept="image/*" onchange="uploadAvatar(event)">
+                        <button onclick="document.getElementById('avatar-upload').click()" class="text-sm bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg font-medium border border-slate-600 w-full">Загрузить фото</button>
+                    </div>
+                    <div class="flex-1 space-y-5">
+                        <input type="text" id="profile-name" disabled class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl text-slate-300 opacity-70">
+                        <input type="text" id="profile-email" disabled class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl text-slate-300 opacity-70">
+                        <textarea id="profile-desc" placeholder="О себе..." class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl h-24 outline-none focus:border-indigo-500"></textarea>
+                        <button onclick="alert('Письмо для сброса пароля отправлено на ваш Email. (Имитация)')" class="text-sm bg-slate-800 text-slate-300 px-4 py-2 rounded-lg border border-slate-600 hover:text-white transition">Сбросить пароль</button>
+                        <button onclick="saveProfile()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-500">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ДОСКА -->
+            <div id="view-board" class="view-section">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h2 id="board-title" class="text-4xl font-black text-white">Загрузка...</h2>
+                            <button onclick="openBoardSettings()" class="text-slate-400 hover:text-white p-2 bg-white/5 rounded-lg border border-white/10" title="Настройки">⚙️</button>
+                            <span id="user-role-badge" class="bg-indigo-500/20 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full border border-indigo-500/30">РОЛЬ</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                         <button id="add-col-btn" onclick="openCreateColumnModal()" class="bg-slate-800/80 text-white border border-slate-700 px-5 py-2.5 rounded-xl shadow hover:bg-slate-700 font-bold">+ Колонка</button>
+                        <button id="add-task-btn" onclick="openCreateTaskModal()" class="bg-emerald-500 text-white px-6 py-2.5 rounded-xl shadow-lg hover:bg-emerald-400 font-bold">+ Задача</button>
+                    </div>
+                </div>
+                <div class="board-container" id="board-columns"></div>
+            </div>
         </div>
     </main>
 
-    <!-- Модалка авторизации -->
-    <div id="auth-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl relative">
-            <h3 class="text-2xl font-bold mb-6 text-slate-800">Вход / Регистрация</h3>
-            <div class="space-y-4">
-                <input type="text" id="auth-username" placeholder="Имя пользователя" class="w-full border p-3 rounded-xl">
-                <input type="email" id="auth-email" placeholder="Email" class="w-full border p-3 rounded-xl">
-                <input type="password" id="auth-password" placeholder="Пароль" class="w-full border p-3 rounded-xl">
+    <!-- МОДАЛЬНЫЕ ОКНА -->
+    
+    <!-- Настройки доски -->
+    <div id="board-settings-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-3xl w-[600px] shadow-2xl relative text-slate-900 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 class="text-2xl font-black">Настройки доски</h3>
+                <button onclick="toggleModal('board-settings-modal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            
+            <div id="board-admin-controls" class="hidden mb-8 space-y-4">
                 <div class="flex gap-2">
-                    <button onclick="submitAuth('login')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Войти</button>
-                    <button onclick="submitAuth('register')" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold">Регистрация</button>
+                    <input type="text" id="settings-board-title" class="flex-1 border border-slate-200 p-3 rounded-xl font-bold outline-none">
+                    <button onclick="renameBoard()" class="bg-indigo-600 text-white px-4 rounded-xl font-bold hover:bg-indigo-500">Сохранить</button>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase">Участники</label>
+                    <button id="settings-invite-btn" onclick="toggleModal('board-settings-modal'); toggleModal('invite-modal')" class="text-indigo-600 text-sm font-bold hover:underline hidden">+ Пригласить</button>
+                </div>
+                <div id="settings-members-list" class="space-y-3"></div>
+            </div>
+            
+            <div id="board-danger-zone" class="hidden mt-8 pt-6 border-t border-red-100">
+                <h4 class="text-red-600 font-bold mb-2">Опасная зона</h4>
+                <button onclick="deleteBoard()" class="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold hover:bg-red-100 transition">Удалить доску</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Авторизация -->
+    <div id="auth-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-700 relative text-white">
+            <h3 class="text-2xl font-black mb-6">Вход / Регистрация</h3>
+            <div class="space-y-4">
+                <input type="text" id="auth-username" placeholder="Логин" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <input type="email" id="auth-email" placeholder="Email (только для регистрации)" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <input type="password" id="auth-password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <div class="flex gap-3 pt-4">
+                    <button onclick="submitAuth('login')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500 transition">Войти</button>
+                    <button onclick="submitAuth('register')" class="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition">Регистрация</button>
+                </div>
+                <div class="text-center pt-2">
+                    <button onclick="alert('Письмо отправлено!')" class="text-xs text-slate-400 hover:text-white underline">Забыли пароль?</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Модалка задачи -->
+    <!-- Создание доски -->
+    <div id="create-board-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-3xl w-[450px] shadow-2xl relative text-slate-900">
+            <h3 class="text-2xl font-black mb-6">Новая доска</h3>
+            <div class="space-y-4">
+                <input type="text" id="new-board-title" placeholder="Название проекта" class="w-full border p-3 rounded-xl outline-none font-bold focus:border-indigo-500">
+                <button onclick="createBoard()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold mt-2">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Задача -->
     <div id="task-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-2xl w-[450px] shadow-2xl relative">
-            <h3 class="text-2xl font-bold mb-6 text-slate-800" id="task-modal-title">Задача</h3>
+        <div class="bg-white p-8 rounded-3xl w-[600px] shadow-2xl relative text-slate-900 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 class="text-2xl font-black" id="task-modal-title">Задача</h3>
+                <button onclick="toggleModal('task-modal')" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+            </div>
             <input type="hidden" id="task-id">
-            <div class="space-y-4">
-                <input type="text" id="task-title" placeholder="Заголовок" class="w-full border p-3 rounded-xl font-bold">
-                <textarea id="task-desc" placeholder="Описание" class="w-full border p-3 rounded-xl h-32"></textarea>
-                <select id="task-priority" class="w-full border p-3 rounded-xl bg-white">
-                    <option value="Low">Низкий</option>
-                    <option value="Medium">Средний</option>
-                    <option value="High">Высокий</option>
-                </select>
-                <div class="flex gap-2 pt-2" id="task-modal-buttons"></div>
+            <div class="space-y-5">
+                <input type="text" id="task-title" placeholder="Название" class="w-full border p-3 rounded-xl font-bold outline-none focus:border-indigo-500">
+                <textarea id="task-desc" placeholder="Описание" class="w-full border p-3 rounded-xl h-24 outline-none focus:border-indigo-500"></textarea>
+                
+                <div class="flex gap-4">
+                    <select id="task-priority" class="w-full border p-3 rounded-xl bg-white outline-none">
+                        <option value="LOW">Низкий</option>
+                        <option value="MEDIUM" selected>Средний</option>
+                        <option value="HIGH">Высокий</option>
+                    </select>
+                    <select id="task-assignee" class="w-full border p-3 rounded-xl bg-white outline-none">
+                        <option value="0">Без исполнителя</option>
+                    </select>
+                </div>
+                
+                <div class="pt-4 border-t border-slate-100">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Вложения</label>
+                    <div id="task-attachments-list" class="flex flex-wrap gap-2 mb-3"></div>
+                    <input type="file" id="file-upload" class="hidden" onchange="uploadTaskFile(event)">
+                    <button id="upload-file-btn" onclick="document.getElementById('file-upload').click()" class="text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition px-4 py-2 rounded-lg font-bold">📎 Прикрепить файл</button>
+                </div>
+                
+                <div class="flex gap-3 pt-4 border-t border-slate-100" id="task-modal-buttons"></div>
             </div>
         </div>
     </div>
 
-    <!-- Модалка колонки -->
+    <!-- Колонка -->
     <div id="column-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl relative">
-            <h3 class="text-xl font-bold mb-6 text-slate-800" id="col-modal-title">Колонка</h3>
+        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl relative text-slate-900">
+            <h3 class="text-xl font-black mb-6" id="col-modal-title">Колонка</h3>
             <input type="hidden" id="col-id">
-            <div class="space-y-4">
-                <input type="text" id="col-title" placeholder="Название колонки" class="w-full border p-3 rounded-xl font-bold">
-                <div class="flex gap-2 pt-2" id="col-modal-buttons"></div>
-            </div>
+            <input type="text" id="col-title" placeholder="Название" class="w-full border p-3 rounded-xl font-bold outline-none mb-4 focus:border-indigo-500">
+            <div class="flex gap-3" id="col-modal-buttons"></div>
         </div>
     </div>
 
-    <!-- Модалка Приглашения -->
+    <!-- Приглашение -->
     <div id="invite-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl">
-            <h3 class="text-xl font-bold mb-4 text-slate-800">Пригласить участника</h3>
-            <input type="email" id="invite-email" placeholder="user@example.com" class="w-full border p-3 rounded-xl mb-4">
-            <button onclick="sendInvite()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить</button>
+        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+            <h3 class="text-xl font-black mb-6">Пригласить</h3>
+            <input type="email" id="invite-email" placeholder="user@email.com" class="w-full border p-3 rounded-xl outline-none mb-4 focus:border-indigo-500">
+            <select id="invite-role" class="w-full border p-3 rounded-xl bg-white mb-4 outline-none">
+                <option value="MEMBER">Участник</option>
+                <option value="ADMIN">Админ</option>
+                <option value="VIEWER">Наблюдатель</option>
+            </select>
+            <div class="flex gap-2">
+                <button onclick="sendInvite()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить</button>
+                <button onclick="toggleModal('invite-modal'); toggleModal('board-settings-modal')" class="bg-slate-100 px-4 rounded-xl font-bold">Отмена</button>
+            </div>
         </div>
     </div>
 
@@ -133,251 +342,574 @@
         let currentUser = JSON.parse(localStorage.getItem('kanban_user'));
         let boards = [];
         let currentBoard = null;
+        let currentRole = null; 
+        let globalUsersCache = {}; 
 
-        window.onload = () => { if (currentUser) updateUI(); };
+        window.onload = () => { 
+            if (currentUser) { 
+                updateNavUI(); 
+                handleRoute(); 
+            } else { 
+                navigate('/welcome'); 
+            }
+        };
+        window.addEventListener('hashchange', handleRoute);
 
-        function toggleModal(id) { document.getElementById(id).classList.toggle('active'); }
-        function closeModalOnOutside(event, elem) { if (event.target === elem) elem.classList.remove('active'); }
-
-        async function submitAuth(type) {
-            const username = document.getElementById('auth-username').value;
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-            const response = await fetch(`/api/v1/${type}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
-            if (response.ok) {
-                currentUser = await response.json();
-                localStorage.setItem('kanban_user', JSON.stringify(currentUser));
-                updateUI();
-                toggleModal('auth-modal');
-            } else { alert('Ошибка авторизации'); }
+        // --- РОУТИНГ ---
+        function navigate(path) { 
+            window.location.hash = path; 
         }
 
-        function logout() { localStorage.removeItem('kanban_user'); location.reload(); }
+        function handleRoute() {
+            const hash = window.location.hash || '#/welcome';
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('board-nav-tools').classList.add('hidden');
 
-        function updateUI() {
-            document.getElementById('welcome-message').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('user-profile').classList.remove('hidden');
-            document.getElementById('login-btn').classList.add('hidden');
-            document.getElementById('board-selector-container').classList.remove('hidden');
-            document.getElementById('username-label').innerText = currentUser.username;
-            loadBoards(false);
-        }
+            if (!currentUser) { 
+                document.getElementById('view-welcome').classList.add('active'); 
+                return; 
+            }
+            if (hash === '#/welcome') { 
+                navigate('/dashboard'); 
+                return; 
+            }
 
-        // --- Управление досками ---
-        async function loadBoards(stayOnCurrent = true) {
-            const response = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
-            boards = await response.json();
-            const select = document.getElementById('board-select');
-            select.innerHTML = '';
-            
-            if (boards.length > 0) {
-                boards.forEach(b => {
-                    const opt = document.createElement('option');
-                    opt.value = b.id; opt.text = b.title + (b.owner_id !== currentUser.id ? ' (shared)' : '');
-                    select.appendChild(opt);
-                });
-                
-                if (stayOnCurrent && currentBoard) {
-                    const found = boards.find(b => b.id === currentBoard.id);
-                    currentBoard = found || boards[0];
-                } else {
-                    currentBoard = boards[0];
-                }
-                
-                select.value = currentBoard.id;
-                renderBoard(currentBoard);
+            if (hash === '#/dashboard') { 
+                document.getElementById('view-dashboard').classList.add('active'); 
+                loadDashboard(); 
+            }
+            else if (hash === '#/profile') { 
+                document.getElementById('view-profile').classList.add('active'); 
+                loadProfile(); 
+            }
+            else if (hash.startsWith('#/board/')) { 
+                document.getElementById('view-board').classList.add('active'); 
+                document.getElementById('board-nav-tools').classList.remove('hidden');
+                loadBoardView(parseInt(hash.replace('#/board/', ''))); 
             }
         }
 
-        function switchBoard() {
-            const boardId = parseInt(document.getElementById('board-select').value);
-            currentBoard = boards.find(b => b.id === boardId);
-            renderBoard(currentBoard);
+        // --- МОДАЛЬНЫЕ ОКНА И UI ---
+        function toggleModal(id) { 
+            document.getElementById(id).classList.toggle('active'); 
+        }
+        
+        function closeModalOnOutside(event, elem) { 
+            if (event.target === elem) elem.classList.remove('active'); 
+        }
+
+        function setAvatarElement(el, user) {
+            if(user.avatar_url) {
+                el.style.backgroundImage = `url(${user.avatar_url})`;
+                el.innerText = '';
+            } else {
+                el.style.backgroundImage = '';
+                el.innerText = user.username.charAt(0).toUpperCase();
+            }
+        }
+
+        function updateNavUI() {
+            document.getElementById('login-btn').classList.add('hidden');
+            document.getElementById('user-profile').classList.remove('hidden');
+            document.getElementById('username-label').innerText = currentUser.username;
+            document.getElementById('user-email-label').innerText = currentUser.email;
+            setAvatarElement(document.getElementById('nav-avatar'), currentUser);
+        }
+
+        // --- АВТОРИЗАЦИЯ ---
+        async function submitAuth(type) {
+            const u = document.getElementById('auth-username').value;
+            const p = document.getElementById('auth-password').value;
+            
+            // Собираем данные. Почта нужна ТОЛЬКО для регистрации
+            const payload = { username: u, password: p };
+            if (type === 'register') {
+                payload.email = document.getElementById('auth-email').value;
+            }
+
+            const res = await fetch(`/api/v1/${type}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(payload) 
+            });
+            
+            if (res.ok) {
+                currentUser = await res.json();
+                localStorage.setItem('kanban_user', JSON.stringify(currentUser));
+                updateNavUI(); 
+                toggleModal('auth-modal'); 
+                navigate('/dashboard');
+            } else { 
+                const errorData = await res.json();
+                alert(errorData.detail || 'Ошибка авторизации'); 
+            }
+        }
+        
+        function logout() { 
+            localStorage.removeItem('kanban_user'); 
+            navigate('/welcome'); 
+            window.location.reload(); 
+        }
+
+        // --- ПРОФИЛЬ ---
+        async function loadProfile() {
+            document.getElementById('profile-name').value = currentUser.username;
+            document.getElementById('profile-email').value = currentUser.email;
+            document.getElementById('profile-desc').value = currentUser.description || '';
+            setAvatarElement(document.getElementById('profile-avatar-preview'), currentUser);
+        }
+
+        async function saveProfile() {
+            const desc = document.getElementById('profile-desc').value;
+            const res = await fetch(`/api/v1/users/me?user_id=${currentUser.id}`, { 
+                method: 'PUT', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({description: desc}) 
+            });
+            if(res.ok) { 
+                currentUser = await res.json(); 
+                localStorage.setItem('kanban_user', JSON.stringify(currentUser)); 
+                alert('Профиль сохранен!'); 
+            }
+        }
+
+        async function uploadAvatar(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const formData = new FormData(); 
+            formData.append('file', file);
+            
+            const res = await fetch(`/api/v1/users/me/avatar?user_id=${currentUser.id}`, { 
+                method: 'POST', 
+                body: formData 
+            });
+            
+            if(res.ok) { 
+                currentUser = await res.json(); 
+                localStorage.setItem('kanban_user', JSON.stringify(currentUser)); 
+                loadProfile(); 
+                updateNavUI(); 
+            }
+        }
+
+        // --- ДАШБОРД ---
+        async function loadDashboard() {
+            const res = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
+            boards = await res.json();
+            const grid = document.getElementById('boards-grid'); 
+            grid.innerHTML = '';
+            
+            if (boards.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-slate-400 py-10 text-center">У вас пока нет досок. Создайте первую!</div>';
+                return;
+            }
+
+            boards.forEach(b => {
+                const member = b.member_associations.find(m => m.user.id === currentUser.id) || {};
+                const role = member.role || 'VIEWER';
+                
+                const rc = {
+                    'OWNER':'bg-rose-500/20 text-rose-300 border-rose-500/30',
+                    'ADMIN':'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                    'MEMBER':'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                }[role] || 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+                
+                grid.innerHTML += `
+                    <div class="board-card flex flex-col justify-between h-40" onclick="navigate('/board/${b.id}')">
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <h3 class="text-xl font-bold truncate">${b.title}</h3>
+                                <span class="text-[10px] px-2 rounded border uppercase ${rc}">${role}</span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-500 mt-4">
+                            Колонок: ${b.columns.length} | Участников: ${b.member_associations.length}
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function openCreateBoardModal() { 
+            document.getElementById('new-board-title').value = ''; 
+            toggleModal('create-board-modal'); 
+        }
+
+        async function createBoard() {
+            const t = document.getElementById('new-board-title').value; 
+            if(!t) return;
+            
+            await fetch(`/api/v1/boards?user_id=${currentUser.id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({title: t, description: ""}) 
+            });
+            toggleModal('create-board-modal'); 
+            loadDashboard();
+        }
+
+        // --- ДОСКА ---
+        async function loadBoardView(id) {
+            const res = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
+            boards = await res.json();
+            currentBoard = boards.find(b => b.id === id);
+            
+            if (!currentBoard) { 
+                navigate('/dashboard'); 
+                return; 
+            }
+            
+            const member = currentBoard.member_associations.find(m => m.user.id === currentUser.id) || {};
+            currentRole = member.role || 'VIEWER';
+            
+            currentBoard.member_associations.forEach(m => globalUsersCache[m.user.id] = m.user);
+            renderBoard();
+        }
+
+        // --- НАСТРОЙКИ ДОСКИ ---
+        function openBoardSettings() {
+            document.getElementById('settings-board-title').value = currentBoard.title;
+            const isAd = ['OWNER', 'ADMIN'].includes(currentRole);
+            
+            document.getElementById('board-admin-controls').style.display = isAd ? 'block' : 'none';
+            document.getElementById('board-danger-zone').style.display = currentRole === 'OWNER' ? 'block' : 'none';
+            document.getElementById('settings-invite-btn').style.display = isAd ? 'block' : 'none';
+
+            const list = document.getElementById('settings-members-list'); 
+            list.innerHTML = '';
+            
+            currentBoard.member_associations.forEach(m => {
+                const isMe = m.user.id === currentUser.id;
+                let cHtml = `<span class="text-xs bg-slate-200 px-2 py-1 rounded">${m.role}</span>`;
+                
+                if(isAd && !isMe) {
+                    cHtml = `
+                    <div class="flex gap-2">
+                        <select onchange="changeRole(${m.user.id}, this.value)" class="text-xs border p-1 rounded bg-white">
+                            <option ${m.role==='ADMIN'?'selected':''}>ADMIN</option>
+                            <option ${m.role==='MEMBER'?'selected':''}>MEMBER</option>
+                            <option ${m.role==='VIEWER'?'selected':''}>VIEWER</option>
+                        </select>
+                        <button onclick="kickUser(${m.user.id})" class="text-red-500 font-bold hover:text-red-700">✖</button>
+                    </div>`;
+                }
+                
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="avatar-circle w-8 h-8 text-xs" onmouseenter="showTooltip(event,${m.user.id},'${m.role}')" onmouseleave="hideTooltip()" style="${m.user.avatar_url ? `background-image:url(${m.user.avatar_url});color:transparent` : ''}">${m.user.username.charAt(0)}</div>
+                            <div>
+                                <div class="text-sm font-bold">${m.user.username}</div>
+                                ${isAd ? `<div class="text-[10px] text-slate-500">${m.user.email}</div>` : ''}
+                            </div>
+                        </div>
+                        ${cHtml}
+                    </div>`;
+            });
+            toggleModal('board-settings-modal');
+        }
+
+        async function renameBoard() {
+            const t = document.getElementById('settings-board-title').value;
+            await fetch(`/api/v1/boards/${currentBoard.id}?user_id=${currentUser.id}`, { 
+                method: 'PUT', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({title: t}) 
+            });
+            toggleModal('board-settings-modal'); 
+            loadBoardView(currentBoard.id);
+        }
+
+        async function deleteBoard() {
+            if(!confirm('Вы уверены, что хотите навсегда удалить эту доску?')) return;
+            await fetch(`/api/v1/boards/${currentBoard.id}?user_id=${currentUser.id}`, { method: 'DELETE' });
+            toggleModal('board-settings-modal'); 
+            navigate('/dashboard');
+        }
+
+        async function changeRole(uid, role) {
+            await fetch(`/api/v1/boards/${currentBoard.id}/members/${uid}?user_id=${currentUser.id}`, { 
+                method: 'PUT', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({role: role}) 
+            });
+            loadBoardView(currentBoard.id); 
+            openBoardSettings();
+        }
+
+        async function kickUser(uid) {
+            if(!confirm('Исключить пользователя из проекта?')) return;
+            await fetch(`/api/v1/boards/${currentBoard.id}/members/${uid}?user_id=${currentUser.id}`, { method: 'DELETE' });
+            loadBoardView(currentBoard.id); 
+            openBoardSettings();
         }
 
         async function sendInvite() {
-            if (!currentBoard) return;
-            const email = document.getElementById('invite-email').value;
-            const response = await fetch(`/api/v1/boards/${currentBoard.id}/invite`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            if (response.ok) { alert('Отправлено!'); toggleModal('invite-modal'); }
-            else { alert('Ошибка при приглашении'); }
-        }
-
-        // --- Рендеринг ---
-        function renderBoard(board) {
-            document.getElementById('board-title').innerText = board.title;
-            const container = document.getElementById('board-columns');
-            container.innerHTML = '';
-
-            // Проверка прав владельца
-            const isOwner = board.owner_id === currentUser.id;
-            const addColBtn = document.getElementById('add-col-btn');
-            if (isOwner) addColBtn.classList.remove('hidden');
-            else addColBtn.classList.add('hidden');
-
-            // Рендер колонок
-            board.columns.sort((a,b) => a.order - b.order).forEach(col => {
-                const colDiv = document.createElement('div');
-                colDiv.className = 'kanban-column p-4';
-                colDiv.setAttribute('ondragover', 'allowDrop(event)');
-                colDiv.setAttribute('ondragleave', 'handleDragLeave(event)');
-                colDiv.setAttribute('ondrop', `drop(event, ${col.id})`); // Используем ID БД напрямую
-                colDiv.setAttribute('data-db-id', col.id);
-
-                // Заголовок колонки
-                const headerHtml = isOwner 
-                    ? `<span class="text-xs font-bold text-slate-600 uppercase tracking-widest cursor-pointer hover:text-indigo-600" onclick="openEditColModal(${col.id}, '${col.title}')">${col.title} ✎</span>`
-                    : `<span class="text-xs font-bold text-slate-600 uppercase tracking-widest">${col.title}</span>`;
-
-                colDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-4 column-header">
-                        ${headerHtml}
-                        <span class="bg-white/50 text-slate-700 text-[10px] px-2 py-0.5 rounded-full">${col.tasks.length}</span>
-                    </div>
-                    <div id="col-content-${col.id}" class="space-y-3 min-h-[500px]"></div>
-                `;
-                container.appendChild(colDiv);
-
-                col.tasks.forEach(task => renderTaskCard(task, col.id));
-            });
-        }
-
-        function renderTaskCard(task, colId) {
-            const card = document.createElement('div');
-            card.className = 'task-card';
-            card.draggable = true;
-            card.id = `task-${task.id}`;
-            card.onclick = () => openEditTaskModal(task);
-            card.ondragstart = (e) => e.dataTransfer.setData('text', task.id);
+            const e = document.getElementById('invite-email').value;
+            const r = document.getElementById('invite-role').value;
             
-            // Маппинг приоритетов для стилей
-            const pClass = `priority-${(task.priority || 'MEDIUM').toUpperCase()}`;
-            const pLabel = task.priority === 'HIGH' ? 'Высокий' : task.priority === 'LOW' ? 'Низкий' : 'Средний';
+            const res = await fetch(`/api/v1/boards/${currentBoard.id}/invite?user_id=${currentUser.id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({email: e, role: r}) 
+            });
+            
+            if(res.ok) { 
+                toggleModal('invite-modal'); 
+                loadBoardView(currentBoard.id); 
+            } else { 
+                alert((await res.json()).detail); 
+            }
+        }
+
+        // --- РЕНДЕРИНГ КОЛОНОК И ЗАДАЧ ---
+        function renderBoard() {
+            document.getElementById('board-title').innerText = currentBoard.title;
+            document.getElementById('user-role-badge').innerText = currentRole;
+            
+            const canTask = ['OWNER','ADMIN','MEMBER'].includes(currentRole);
+            
+            document.getElementById('add-col-btn').style.display = ['OWNER','ADMIN'].includes(currentRole) ? 'block' : 'none';
+            document.getElementById('add-task-btn').style.display = canTask ? 'block' : 'none';
+
+            const cont = document.getElementById('board-columns'); 
+            cont.innerHTML = '';
+            
+            const cols = currentBoard.columns || [];
+            cols.sort((a,b) => a.order - b.order).forEach(col => {
+                const cDiv = document.createElement('div'); 
+                cDiv.className = 'kanban-column p-4';
+                
+                if(canTask) { 
+                    cDiv.setAttribute('ondragover','allowDrop(event)'); 
+                    cDiv.setAttribute('ondrop',`drop(event,${col.id})`); 
+                }
+                
+                cDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-5">
+                        <span class="text-xs font-black text-white uppercase tracking-widest cursor-pointer" onclick="openEditColModal(${col.id},'${col.title}')">${col.title}</span>
+                        <span class="bg-slate-800 text-xs px-2 rounded-full">${col.tasks.length}</span>
+                    </div>
+                    <div id="col-${col.id}" class="space-y-3 min-h-[500px]"></div>`;
+                
+                cont.appendChild(cDiv);
+                col.tasks.forEach(t => renderTask(t, col.id, canTask));
+            });
+        }
+
+        function renderTask(t, colId, canTask) {
+            const card = document.createElement('div'); 
+            card.className = 'task-card';
+            
+            if(canTask) { 
+                card.draggable = true; 
+                card.onclick = (e) => {
+                    if(!e.target.closest('.avatar-circle')) openEditTaskModal(t);
+                }; 
+                card.ondragstart = (e) => e.dataTransfer.setData('text', t.id); 
+            }
+            
+            const pClass = `priority-${(t.priority || 'MEDIUM').toLowerCase()}`;
+            
+            let asHtml = '';
+            if(t.assignee) {
+                const style = t.assignee.avatar_url ? `background-image:url(${t.assignee.avatar_url});color:transparent` : '';
+                asHtml = `<div class="avatar-circle w-6 h-6 text-[10px]" onmouseenter="showTooltip(event,${t.assignee.id},'Участник')" onmouseleave="hideTooltip()" style="${style}">${t.assignee.username.charAt(0)}</div>`;
+            }
+            
+            let attachHtml = '';
+            if (t.attachments && t.attachments.length) {
+                attachHtml = `<div class="text-[10px] text-blue-500 mt-2 font-bold">📎 Вложений: ${t.attachments.length}</div>`;
+            }
 
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase ${pClass}">${pLabel}</span>
+                <div class="flex justify-between items-start mb-3">
+                    <span class="priority-badge ${pClass}">${t.priority}</span>
+                    ${asHtml}
                 </div>
-                <div class="font-bold text-slate-800">${task.title}</div>
-                <div class="text-sm text-slate-500 mt-1 line-clamp-2">${task.description || ''}</div>
+                <div class="font-bold leading-tight">${t.title}</div>
+                ${t.description ? `<div class="text-xs text-slate-500 mt-2 line-clamp-2">${t.description}</div>` : ''}
+                ${attachHtml}
             `;
-            document.getElementById(`col-content-${colId}`).appendChild(card);
+            document.getElementById(`col-${colId}`).appendChild(card);
         }
 
-        // --- Задачи (CRUD) ---
+        // --- ВСПЛЫВАЮЩИЕ ПОДСКАЗКИ ---
+        let ttTimer;
+        function showTooltip(e, uid, role) {
+            clearTimeout(ttTimer); 
+            const tt = document.getElementById('user-tooltip'); 
+            const u = globalUsersCache[uid] || {};
+            
+            setAvatarElement(document.getElementById('tt-avatar'), u);
+            document.getElementById('tt-name').innerText = u.username; 
+            document.getElementById('tt-email').innerText = u.email || '';
+            document.getElementById('tt-desc').innerText = u.description || 'Описание не указано.';
+            
+            tt.style.left = `${e.pageX + 15}px`; 
+            tt.style.top = `${e.pageY + 15}px`;
+            tt.classList.remove('hidden'); 
+            setTimeout(() => tt.style.opacity = '1', 10);
+        }
+        
+        function hideTooltip() { 
+            const tt = document.getElementById('user-tooltip'); 
+            tt.style.opacity = '0'; 
+            ttTimer = setTimeout(() => tt.classList.add('hidden'), 200); 
+        }
+
+        // --- УПРАВЛЕНИЕ КОЛОНКАМИ ---
+        function openCreateColModal() { 
+            document.getElementById('col-title').value = ''; 
+            document.getElementById('col-modal-buttons').innerHTML = `<button onclick="saveCol()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Создать</button>`; 
+            toggleModal('column-modal'); 
+        }
+        
+        function openEditColModal(id, title) { 
+            document.getElementById('col-id').value = id; 
+            document.getElementById('col-title').value = title; 
+            document.getElementById('col-modal-buttons').innerHTML = `
+                <button onclick="updateCol()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
+                <button onclick="deleteCol()" class="bg-red-50 text-red-600 px-4 rounded-xl font-bold">Удалить</button>`; 
+            toggleModal('column-modal'); 
+        }
+        
+        async function saveCol() { 
+            await fetch(`/api/v1/boards/${currentBoard.id}/columns?user_id=${currentUser.id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title: document.getElementById('col-title').value})
+            }); 
+            toggleModal('column-modal'); 
+            loadBoardView(currentBoard.id); 
+        }
+        
+        async function updateCol() { 
+            await fetch(`/api/v1/columns/${document.getElementById('col-id').value}?user_id=${currentUser.id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title: document.getElementById('col-title').value})
+            }); 
+            toggleModal('column-modal'); 
+            loadBoardView(currentBoard.id); 
+        }
+        
+        async function deleteCol() { 
+            if(!confirm('Удалить колонку?')) return; 
+            await fetch(`/api/v1/columns/${document.getElementById('col-id').value}?user_id=${currentUser.id}`, {method: 'DELETE'}); 
+            toggleModal('column-modal'); 
+            loadBoardView(currentBoard.id); 
+        }
+
+        // --- УПРАВЛЕНИЕ ЗАДАЧАМИ ---
+        function popAssignees(sid = 0) {
+            const s = document.getElementById('task-assignee'); 
+            s.innerHTML = '<option value="0">Без исполнителя</option>';
+            currentBoard.member_associations.forEach(m => { 
+                s.innerHTML += `<option value="${m.user.id}" ${m.user.id === sid ? 'selected' : ''}>${m.user.username}</option>`; 
+            });
+        }
+
         function openCreateTaskModal() {
-            if(!currentBoard || currentBoard.columns.length === 0) return alert('Создайте колонку!');
-            document.getElementById('task-modal-title').innerText = 'Новая задача';
-            document.getElementById('task-id').value = '';
-            document.getElementById('task-modal-buttons').innerHTML = `<button onclick="saveTask()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать</button>`;
+            document.getElementById('task-id').value = ''; 
+            document.getElementById('task-title').value = ''; 
+            document.getElementById('task-desc').value = ''; 
+            document.getElementById('task-attachments-list').innerHTML = '';
+            
+            popAssignees(); 
+            document.getElementById('upload-file-btn').style.display = 'none'; // Файлы грузим только при редактировании
+            
+            document.getElementById('task-modal-buttons').innerHTML = `<button onclick="saveTask()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать</button>`; 
             toggleModal('task-modal');
         }
 
-        function openEditTaskModal(task) {
-            document.getElementById('task-modal-title').innerText = 'Редактировать';
-            document.getElementById('task-id').value = task.id;
-            document.getElementById('task-title').value = task.title;
-            document.getElementById('task-desc').value = task.description || '';
+        function openEditTaskModal(t) {
+            document.getElementById('task-id').value = t.id; 
+            document.getElementById('task-title').value = t.title; 
+            document.getElementById('task-desc').value = t.description || ''; 
+            document.getElementById('task-priority').value = (t.priority || 'MEDIUM').toUpperCase();
+            
+            popAssignees(t.assignee_id); 
+            document.getElementById('upload-file-btn').style.display = 'block';
+            
+            const al = document.getElementById('task-attachments-list'); 
+            al.innerHTML = '';
+            (t.attachments || []).forEach(a => { 
+                al.innerHTML += `<a href="${a.file_url}" target="_blank" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded-lg border border-blue-200 text-xs font-bold transition">📎 ${a.file_name}</a>`; 
+            });
+            
             document.getElementById('task-modal-buttons').innerHTML = `
-                <button onclick="updateTask()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
-                <button onclick="deleteTask()" class="flex-1 bg-red-100 text-red-600 py-3 rounded-xl font-bold">Удалить</button>`;
+                <button onclick="updateTask()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500">Сохранить</button>
+                <button onclick="deleteTask()" class="bg-red-50 text-red-600 px-6 rounded-xl font-bold hover:bg-red-100">Удалить</button>`; 
             toggleModal('task-modal');
         }
 
         async function saveTask() {
-            const body = {
-                title: document.getElementById('task-title').value,
-                description: document.getElementById('task-desc').value,
-                priority: document.getElementById('task-priority').value,
-                column_id: currentBoard.columns[0].id // Всегда в первую колонку
-            };
-            await fetch('/api/v1/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            toggleModal('task-modal'); loadBoards(true); // stayOnCurrent = true
+            const aid = parseInt(document.getElementById('task-assignee').value);
+            await fetch(`/api/v1/tasks?user_id=${currentUser.id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title: document.getElementById('task-title').value, 
+                    description: document.getElementById('task-desc').value, 
+                    priority: document.getElementById('task-priority').value, 
+                    column_id: currentBoard.columns[0].id, 
+                    assignee_id: aid > 0 ? aid : null
+                })
+            });
+            toggleModal('task-modal'); 
+            loadBoardView(currentBoard.id);
         }
 
         async function updateTask() {
-            const taskId = document.getElementById('task-id').value;
-            const body = {
-                title: document.getElementById('task-title').value,
-                description: document.getElementById('task-desc').value,
-                priority: document.getElementById('task-priority').value
-            };
-            await fetch(`/api/v1/tasks/${taskId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            toggleModal('task-modal'); loadBoards(true);
-        }
-
-        async function deleteTask() {
-            const taskId = document.getElementById('task-id').value;
-            if(!confirm('Удалить?')) return;
-            await fetch(`/api/v1/tasks/${taskId}`, { method: 'DELETE' });
-            toggleModal('task-modal'); loadBoards(true);
-        }
-
-        // --- Колонки (CRUD) ---
-        function openCreateColumnModal() {
-            document.getElementById('col-modal-title').innerText = 'Новая колонка';
-            document.getElementById('col-title').value = '';
-            document.getElementById('col-modal-buttons').innerHTML = `<button onclick="saveColumn()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать</button>`;
-            toggleModal('column-modal');
-        }
-
-        function openEditColModal(id, title) {
-            document.getElementById('col-modal-title').innerText = 'Редактировать колонку';
-            document.getElementById('col-id').value = id;
-            document.getElementById('col-title').value = title;
-            document.getElementById('col-modal-buttons').innerHTML = `
-                <button onclick="updateColumn()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
-                <button onclick="deleteColumn()" class="flex-1 bg-red-100 text-red-600 py-3 rounded-xl font-bold">Удалить</button>`;
-            toggleModal('column-modal');
-        }
-
-        async function saveColumn() {
-            const title = document.getElementById('col-title').value;
-            const order = currentBoard.columns.length;
-            await fetch(`/api/v1/boards/${currentBoard.id}/columns?user_id=${currentUser.id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, order })
-            });
-            toggleModal('column-modal'); loadBoards(true);
-        }
-
-        async function updateColumn() {
-            const id = document.getElementById('col-id').value;
-            const title = document.getElementById('col-title').value;
-            await fetch(`/api/v1/columns/${id}?user_id=${currentUser.id}`, {
+            const tid = document.getElementById('task-id').value;
+            const aid = parseInt(document.getElementById('task-assignee').value);
+            
+            await fetch(`/api/v1/tasks/${tid}?user_id=${currentUser.id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title: document.getElementById('task-title').value, 
+                    description: document.getElementById('task-desc').value, 
+                    priority: document.getElementById('task-priority').value, 
+                    assignee_id: aid
+                })
             });
-            toggleModal('column-modal'); loadBoards(true);
+            toggleModal('task-modal'); 
+            loadBoardView(currentBoard.id);
         }
 
-        async function deleteColumn() {
-            const id = document.getElementById('col-id').value;
-            if(!confirm('Удалить колонку и все задачи в ней?')) return;
-            await fetch(`/api/v1/columns/${id}?user_id=${currentUser.id}`, { method: 'DELETE' });
-            toggleModal('column-modal'); loadBoards(true);
+        async function deleteTask() { 
+            if(!confirm('Удалить задачу?')) return; 
+            await fetch(`/api/v1/tasks/${document.getElementById('task-id').value}?user_id=${currentUser.id}`, {method: 'DELETE'}); 
+            toggleModal('task-modal'); 
+            loadBoardView(currentBoard.id); 
         }
 
-        // --- Drag & Drop ---
-        function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
-        function handleDragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
+        async function uploadTaskFile(e) {
+            const f = e.target.files[0];
+            const tid = document.getElementById('task-id').value; 
+            if(!f || !tid) return;
+            
+            const fd = new FormData(); 
+            fd.append('file', f);
+            
+            await fetch(`/api/v1/tasks/${tid}/attachments?user_id=${currentUser.id}`, {
+                method: 'POST',
+                body: fd
+            });
+            
+            loadBoardView(currentBoard.id); 
+            toggleModal('task-modal');
+        }
+
+        // --- ПЕРЕТАСКИВАНИЕ ЗАДАЧ (Drag & Drop) ---
+        function allowDrop(ev) { ev.preventDefault(); }
+        
         async function drop(ev, colId) {
             ev.preventDefault();
-            ev.currentTarget.classList.remove('drag-over');
             const taskId = ev.dataTransfer.getData('text');
-            await fetch(`/api/v1/tasks/${taskId}?column_id=${colId}`, { method: 'PATCH' });
-            loadBoards(true);
+            await fetch(`/api/v1/tasks/${taskId}?column_id=${colId}&user_id=${currentUser.id}`, { method: 'PATCH' });
+            loadBoardView(currentBoard.id);
         }
     </script>
 </body>
