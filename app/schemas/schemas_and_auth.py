@@ -21,10 +21,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class AuthHandler:
     @staticmethod
     def verify_password(plain_password, hashed_password):
-        try: 
-            return pwd_context.verify(plain_password[:72], hashed_password)
-        except Exception: 
-            return False
+        try: return pwd_context.verify(plain_password[:72], hashed_password)
+        except Exception: return False
 
     @staticmethod
     def get_password_hash(password):
@@ -44,15 +42,25 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-# НОВАЯ СХЕМА: Только для входа
 class UserLogin(BaseModel):
     username: str
     password: str
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
+class AdminPasswordReset(BaseModel):
+    new_password: str
+
+class ForgotPassword(BaseModel):
+    email: EmailStr
 
 class UserRead(UserBase):
     id: int
     description: Optional[str] = None
     avatar_url: Optional[str] = None
+    is_superuser: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 class UserProfileUpdate(BaseModel):
@@ -97,6 +105,7 @@ class TaskRead(BaseModel):
     assignee_id: Optional[int] = None
     assignee: Optional[UserRead] = None
     attachments: List[TaskAttachmentRead] = []
+    is_deleted: bool = False
     
     @field_validator('priority', mode='before')
     @classmethod
@@ -141,3 +150,9 @@ class MemberInvite(BaseModel):
     
 class MemberRoleUpdate(BaseModel):
     role: str
+
+class SystemStats(BaseModel):
+    total_users: int
+    total_boards: int
+    total_tasks: int
+    total_deleted_tasks: int  # Новое поле статистики

@@ -6,14 +6,15 @@
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey, String, Integer, Text, Enum as SqlEnum
+from sqlalchemy import ForeignKey, String, Integer, Text, Boolean, Enum as SqlEnum
 import enum
 import os
 
 # --- DATABASE CONFIGURATION ---
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:leon1511@localhost:5438/postgres")
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+# pool_pre_ping=True устраняет ошибку "connection is closed" в PostgreSQL
+engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True, pool_recycle=3600)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 class Base(DeclarativeBase):
@@ -52,6 +53,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     avatar_url: Mapped[str | None] = mapped_column(String(255))
+    
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     
     board_associations: Mapped[list["BoardMember"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -94,6 +97,8 @@ class Task(Base):
     )
     column_id: Mapped[int] = mapped_column(ForeignKey("columns.id", ondelete="CASCADE"))
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     
     column: Mapped["Column"] = relationship(back_populates="tasks")
     assignee: Mapped["User"] = relationship(back_populates="assigned_tasks")

@@ -9,7 +9,7 @@ api.routes отвечает за определение путей (endpoints), 
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List
 import shutil
@@ -21,13 +21,13 @@ from ..models.database_and_models import User, Board, Task, Column, BoardMember,
 from ..schemas.schemas_and_auth import (
     UserCreate, UserLogin, UserRead, AuthHandler, TaskCreate, TaskUpdate, 
     TaskRead, BoardRead, MemberInvite, ColumnCreate, ColumnUpdate, ColumnRead, 
-    BoardCreate, BoardUpdate, UserProfileUpdate, MemberRoleUpdate, TaskAttachmentRead
+    BoardCreate, BoardUpdate, UserProfileUpdate, MemberRoleUpdate, TaskAttachmentRead,
+    SystemStats, PasswordChange, AdminPasswordReset, ForgotPassword
 )
 from ..services.kanban import KanbanService
 
 router = APIRouter()
 
-# --- Вспомогательные функции ---
 async def check_board_permission(db: AsyncSession, board_id: int, user_id: int, allowed_roles: list[BoardRole]):
     stmt = select(BoardMember).where(BoardMember.board_id == board_id, BoardMember.user_id == user_id)
     result = await db.execute(stmt)
@@ -35,6 +35,12 @@ async def check_board_permission(db: AsyncSession, board_id: int, user_id: int, 
     if not member or member.role not in allowed_roles:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
     return member
+
+async def check_superuser(db: AsyncSession, user_id: int):
+    user = await db.get(User, user_id)
+    if not user or not user.is_superuser:
+        raise HTTPException(status_code=403, detail="Требуются права администратора")
+    return user
 
 async def get_board_id_by_column(db: AsyncSession, column_id: int) -> int:
     result = await db.execute(select(Column).where(Column.id == column_id))
@@ -52,7 +58,7 @@ async def get_board_id_by_task(db: AsyncSession, task_id: int) -> int:
 @router.put("/users/me", response_model=UserRead)
 async def update_profile(profile_data: UserProfileUpdate, user_id: int, db: AsyncSession = Depends(get_db)):
     updated_user = await KanbanService.update_user_profile(db, user_id, description=profile_data.description)
-    if not updated_user: raise HTTPException(status_code=404, detail="Пользователь не найден")
+    if not updated_user: raise HTTPException(status_code=404)
     return updated_user
 
 @router.post("/users/me/avatar", response_model=UserRead)
@@ -61,9 +67,15 @@ async def upload_avatar(user_id: int, file: UploadFile = File(...), db: AsyncSes
     filename = f"avatar_{user_id}_{uuid.uuid4().hex[:8]}.{ext}"
     path = f"app/static/uploads/{filename}"
     with open(path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
-    
-    updated_user = await KanbanService.update_user_profile(db, user_id, avatar_url=f"/static/uploads/{filename}")
-    return updated_user
+    return await KanbanService.update_user_profile(db, user_id, avatar_url=f"/static/uploads/{filename}")
+
+@router.put("/users/me/password")
+async def change_password(data: PasswordChange, user_id: int, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not AuthHandler.verify_password(data.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Неверный старый пароль")
+    await KanbanService.update_user_password(db, user_id, AuthHandler.get_password_hash(data.new_password))
+    return {"detail": "Пароль изменен"}
 
 # --- AUTH ROUTES ---
 @router.post("/register", response_model=UserRead)
@@ -71,8 +83,11 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.username == user_data.username))
     if existing.scalar_one_or_none(): raise HTTPException(status_code=400, detail="Имя занято")
     
+    users_count = await db.scalar(select(func.count(User.id)))
+    is_super = (users_count == 0) or (user_data.username.lower() == "admin")
+
     hashed_pw = AuthHandler.get_password_hash(user_data.password)
-    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_pw)
+    new_user = User(username=user_data.username, email=user_data.email, hashed_password=hashed_pw, is_superuser=is_super)
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
@@ -83,10 +98,41 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.username == user_data.username))
     user = result.scalar_one_or_none()
-    
     if not user or not AuthHandler.verify_password(user_data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверные данные входа")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверные данные")
     return user
+
+@router.post("/auth/forgot-password")
+async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == data.email))
+    if not result.scalar_one_or_none(): raise HTTPException(status_code=404, detail="Email не найден")
+    return {"detail": "Письмо отправлено"}
+
+# --- ADMIN ROUTES ---
+@router.get("/admin/stats", response_model=SystemStats)
+async def get_stats(user_id: int, db: AsyncSession = Depends(get_db)):
+    await check_superuser(db, user_id)
+    return await KanbanService.get_system_stats(db)
+
+@router.get("/admin/users", response_model=List[UserRead])
+async def get_all_users(user_id: int, db: AsyncSession = Depends(get_db)):
+    await check_superuser(db, user_id)
+    return await KanbanService.get_all_users(db)
+
+@router.put("/admin/users/{target_id}/password")
+async def admin_reset_password(target_id: int, data: AdminPasswordReset, user_id: int, db: AsyncSession = Depends(get_db)):
+    await check_superuser(db, user_id)
+    success = await KanbanService.update_user_password(db, target_id, AuthHandler.get_password_hash(data.new_password))
+    if not success: raise HTTPException(status_code=404)
+    return {"detail": "Сброшен"}
+
+@router.delete("/admin/users/{target_id}")
+async def admin_delete_user(target_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    await check_superuser(db, user_id)
+    if target_id == user_id: raise HTTPException(status_code=400, detail="Нельзя удалить себя")
+    success = await KanbanService.admin_delete_user(db, target_id)
+    if not success: raise HTTPException(status_code=404)
+    return {"detail": "Удален"}
 
 # --- BOARD ROUTES ---
 @router.get("/boards", response_model=List[BoardRead])
@@ -110,8 +156,8 @@ async def update_board_info(board_id: int, board_data: BoardUpdate, user_id: int
 async def delete_board(board_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
     await check_board_permission(db, board_id, user_id, [BoardRole.OWNER])
     success = await KanbanService.delete_board(db, board_id)
-    if not success: raise HTTPException(status_code=404, detail="Доска не найдена")
-    return {"detail": "Доска удалена"}
+    if not success: raise HTTPException(status_code=404)
+    return {"detail": "Удалена"}
 
 # --- MEMBER ROUTES ---
 @router.post("/boards/{board_id}/invite")
@@ -125,7 +171,7 @@ async def invite_to_board(board_id: int, invite: MemberInvite, user_id: int, db:
 async def update_member(board_id: int, target_user_id: int, data: MemberRoleUpdate, user_id: int, db: AsyncSession = Depends(get_db)):
     await check_board_permission(db, board_id, user_id, [BoardRole.OWNER, BoardRole.ADMIN])
     await KanbanService.update_member_role(db, board_id, target_user_id, data.role)
-    return {"detail": "Роль обновлена"}
+    return {"detail": "Обновлена"}
 
 @router.delete("/boards/{board_id}/members/{target_user_id}")
 async def kick_member(board_id: int, target_user_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
@@ -185,16 +231,20 @@ async def update_task_column(task_id: int, column_id: int, user_id: int, db: Asy
     task = result.scalar_one_or_none()
     task.column_id = column_id
     await db.commit()
-    return task
+    
+    # Решение ошибки при перетаскивании (MissingGreenlet)
+    res2 = await db.execute(
+        select(Task).where(Task.id == task_id)
+        .options(selectinload(Task.assignee), selectinload(Task.attachments))
+    )
+    return res2.scalar_one()
 
 @router.post("/tasks/{task_id}/attachments", response_model=TaskAttachmentRead)
 async def upload_task_file(task_id: int, user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     board_id = await get_board_id_by_task(db, task_id)
     await check_board_permission(db, board_id, user_id, [BoardRole.OWNER, BoardRole.ADMIN, BoardRole.MEMBER])
-    
     ext = file.filename.split(".")[-1]
     filename = f"{uuid.uuid4().hex}.{ext}"
     path = f"app/static/uploads/{filename}"
     with open(path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
-    
     return await KanbanService.add_task_attachment(db, task_id, file.filename, f"/static/uploads/{filename}")

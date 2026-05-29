@@ -1,10 +1,49 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List
 from ..models.database_and_models import Board, Column, Task, TaskPriority, User, BoardMember, BoardRole, TaskAttachment
 
 class KanbanService:
+    # --- ADMIN / SYSTEM ---
+    @staticmethod
+    async def get_system_stats(db: AsyncSession):
+        users_count = await db.scalar(select(func.count(User.id)))
+        boards_count = await db.scalar(select(func.count(Board.id)))
+        # Надежная проверка: берем всё, что False или None
+        tasks_count = await db.scalar(select(func.count(Task.id)).where((Task.is_deleted == False) | (Task.is_deleted.is_(None))))
+        deleted_count = await db.scalar(select(func.count(Task.id)).where(Task.is_deleted == True))
+        return {
+            "total_users": users_count or 0, 
+            "total_boards": boards_count or 0, 
+            "total_tasks": tasks_count or 0,
+            "total_deleted_tasks": deleted_count or 0
+        }
+
+    @staticmethod
+    async def get_all_users(db: AsyncSession):
+        result = await db.execute(select(User))
+        return result.scalars().all()
+
+    @staticmethod
+    async def admin_delete_user(db: AsyncSession, user_id: int):
+        user = await db.get(User, user_id)
+        if user:
+            await db.delete(user)
+            await db.commit()
+            return True
+        return False
+
+    @staticmethod
+    async def update_user_password(db: AsyncSession, user_id: int, new_hashed_password: str):
+        user = await db.get(User, user_id)
+        if user:
+            user.hashed_password = new_hashed_password
+            await db.commit()
+            return True
+        return False
+
+    # --- BOARDS & MEMBERS ---
     @staticmethod
     async def get_user_boards(db: AsyncSession, user_id: int) -> List[Board]:
         result = await db.execute(
@@ -15,7 +54,11 @@ class KanbanService:
                 selectinload(Board.member_associations).selectinload(BoardMember.user)
             )
         )
-        return result.scalars().unique().all()
+        boards = result.scalars().unique().all()
+        for board in boards:
+            for col in board.columns:
+                col.tasks = [t for t in col.tasks if not getattr(t, 'is_deleted', False)]
+        return boards
 
     @staticmethod
     async def create_board(db: AsyncSession, title: str, user_id: int):
@@ -100,13 +143,22 @@ class KanbanService:
             await db.refresh(user)
         return user
 
+    # --- COLUMN & TASK MANAGEMENT ---
     @staticmethod
     async def create_column(db: AsyncSession, board_id: int, title: str, order: int):
         new_col = Column(title=title, order=order, board_id=board_id)
         db.add(new_col)
         await db.commit()
-        await db.refresh(new_col)
-        return new_col
+        
+        # Полная подгрузка связей во избежание MissingGreenlet Error
+        result = await db.execute(
+            select(Column).where(Column.id == new_col.id)
+            .options(
+                selectinload(Column.tasks).selectinload(Task.assignee),
+                selectinload(Column.tasks).selectinload(Task.attachments)
+            )
+        )
+        return result.scalar_one()
 
     @staticmethod
     async def update_column(db: AsyncSession, column_id: int, title: str):
@@ -115,8 +167,17 @@ class KanbanService:
         if col:
             col.title = title
             await db.commit()
-            await db.refresh(col)
-        return col
+            
+            # Перезапрашиваем со всеми связями
+            res2 = await db.execute(
+                select(Column).where(Column.id == column_id)
+                .options(
+                    selectinload(Column.tasks).selectinload(Task.assignee),
+                    selectinload(Column.tasks).selectinload(Task.attachments)
+                )
+            )
+            return res2.scalar_one()
+        return None
 
     @staticmethod
     async def delete_column(db: AsyncSession, column_id: int):
@@ -134,13 +195,21 @@ class KanbanService:
         except KeyError: priority_enum = TaskPriority.MEDIUM
 
         new_task = Task(
-            title=task_data.title, description=task_data.description,
-            column_id=task_data.column_id, priority=priority_enum, assignee_id=task_data.assignee_id
+            title=task_data.title, 
+            description=task_data.description,
+            column_id=task_data.column_id, 
+            priority=priority_enum, 
+            assignee_id=task_data.assignee_id,
+            is_deleted=False
         )
         db.add(new_task)
         await db.commit()
-        await db.refresh(new_task)
-        return new_task
+        
+        result = await db.execute(
+            select(Task).where(Task.id == new_task.id)
+            .options(selectinload(Task.assignee), selectinload(Task.attachments))
+        )
+        return result.scalar_one()
 
     @staticmethod
     async def update_task(db: AsyncSession, task_id: int, task_data):
@@ -154,16 +223,22 @@ class KanbanService:
                 except KeyError: pass 
             if task_data.assignee_id is not None:
                 task.assignee_id = task_data.assignee_id if task_data.assignee_id > 0 else None
+            
             await db.commit()
-            await db.refresh(task)
-        return task
+            
+            result_updated = await db.execute(
+                select(Task).where(Task.id == task_id)
+                .options(selectinload(Task.assignee), selectinload(Task.attachments))
+            )
+            return result_updated.scalar_one()
+        return None
 
     @staticmethod
     async def delete_task(db: AsyncSession, task_id: int):
         result = await db.execute(select(Task).where(Task.id == task_id))
         task = result.scalar_one_or_none()
         if task:
-            await db.delete(task)
+            task.is_deleted = True
             await db.commit()
             return True
         return False
