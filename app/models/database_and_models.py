@@ -6,14 +6,14 @@
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey, String, Integer, Text, Boolean, Enum as SqlEnum
+from sqlalchemy import ForeignKey, String, Integer, Text, Boolean, DateTime, Enum as SqlEnum
 import enum
 import os
+from datetime import datetime, timezone
 
 # --- DATABASE CONFIGURATION ---
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:leon1511@localhost:5438/postgres")
 
-# pool_pre_ping=True устраняет ошибку "connection is closed" в PostgreSQL
 engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True, pool_recycle=3600)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -31,6 +31,10 @@ class BoardRole(enum.Enum):
     ADMIN = "ADMIN"
     MEMBER = "MEMBER"
     VIEWER = "VIEWER"
+
+class ResetRequestStatus(enum.Enum):
+    PENDING = "PENDING"
+    RESOLVED = "RESOLVED"
 
 # --- ASSOCIATION OBJECT ---
 class BoardMember(Base):
@@ -60,6 +64,17 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     assigned_tasks: Mapped[list["Task"]] = relationship(back_populates="assignee")
+    password_requests: Mapped[list["PasswordResetRequest"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+class PasswordResetRequest(Base):
+    __tablename__ = "password_reset_requests"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    status: Mapped[ResetRequestStatus] = mapped_column(SqlEnum(ResetRequestStatus, native_enum=False), default=ResetRequestStatus.PENDING)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    user: Mapped["User"] = relationship(back_populates="password_requests")
 
 class Board(Base):
     __tablename__ = "boards"

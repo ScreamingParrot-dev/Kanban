@@ -30,6 +30,13 @@
         .view-section.active { display: block; }
         .admin-tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;}
         .admin-tab.active { border-color: #6366f1; color: #818cf8; font-weight: bold; }
+        
+        /* Стили для вкладок модального окна авторизации */
+        .auth-tab { cursor: pointer; padding-bottom: 8px; border-bottom: 2px solid transparent; transition: all 0.3s; color: #94a3b8; }
+        .auth-tab.active { border-color: #818cf8; color: white; font-weight: bold; }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="min-h-screen font-sans">
@@ -97,6 +104,7 @@
                     <div class="flex border-b border-slate-700 bg-slate-800/50">
                         <div class="admin-tab active" onclick="switchAdminTab('stats', this)">📊 Статистика</div>
                         <div class="admin-tab" onclick="switchAdminTab('users', this)">👥 Пользователи</div>
+                        <div class="admin-tab" onclick="switchAdminTab('requests', this)">🔑 Заявки на пароль</div>
                     </div>
                     <div class="p-8">
                         <div id="admin-tab-stats">
@@ -136,6 +144,14 @@
                                 <table class="w-full text-left">
                                     <thead><tr class="text-slate-400 text-sm border-b border-slate-700"><th class="py-3 px-4">ID</th><th class="py-3 px-4">Логин</th><th class="py-3 px-4">Email</th><th class="py-3 px-4">Роль</th><th class="py-3 px-4 text-right">Действия</th></tr></thead>
                                     <tbody id="admin-users-table" class="divide-y divide-slate-800"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="admin-tab-requests" class="hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead><tr class="text-slate-400 text-sm border-b border-slate-700"><th class="py-3 px-4">ID Заявки</th><th class="py-3 px-4">Пользователь</th><th class="py-3 px-4">Email</th><th class="py-3 px-4">Дата запроса</th><th class="py-3 px-4 text-right">Действия</th></tr></thead>
+                                    <tbody id="admin-requests-table" class="divide-y divide-slate-800"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -203,14 +219,24 @@
             <p class="text-sm text-slate-500 mb-6">Введите Email, на который зарегистрирован аккаунт.</p>
             <div class="space-y-4">
                 <input type="email" id="fp-email" placeholder="user@email.com" class="w-full border p-3 rounded-xl outline-none">
-                <button onclick="forgotPassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить письмо</button>
+                <button onclick="forgotPassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить заявку админу</button>
             </div>
+        </div>
+    </div>
+
+    <div id="admin-resolve-req-modal" class="modal" onclick="closeModalOnOutside(event, this)">
+        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+            <h3 class="text-xl font-black mb-2">Задать новый пароль</h3>
+            <p class="text-xs text-slate-500 mb-4">Свяжитесь с пользователем и передайте ему этот пароль после сохранения.</p>
+            <input type="hidden" id="admin-req-id">
+            <input type="text" id="admin-req-pwd" class="w-full border p-3 rounded-xl outline-none mb-4 font-mono">
+            <button onclick="adminResolveRequestSubmit()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600">Сохранить и закрыть заявку</button>
         </div>
     </div>
 
     <div id="admin-reset-pwd-modal" class="modal" onclick="closeModalOnOutside(event, this)">
         <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
-            <h3 class="text-xl font-black mb-6">Задать новый пароль</h3>
+            <h3 class="text-xl font-black mb-6">Принудительно сменить пароль</h3>
             <input type="hidden" id="admin-reset-uid">
             <input type="text" id="admin-new-pwd" placeholder="Новый пароль" class="w-full border p-3 rounded-xl outline-none mb-4 font-mono">
             <button onclick="adminResetPasswordSubmit()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-600">Сохранить</button>
@@ -243,20 +269,30 @@
         </div>
     </div>
 
+    <!-- Новое модальное окно авторизации (Слайдер) -->
     <div id="auth-modal" class="modal" onclick="closeModalOnOutside(event, this)">
         <div class="bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-700 relative text-white">
-            <h3 class="text-2xl font-black mb-6">Вход / Регистрация</h3>
-            <div class="space-y-4">
-                <input type="text" id="auth-username" placeholder="Логин" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <input type="email" id="auth-email" placeholder="Email (только для регистрации)" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <input type="password" id="auth-password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <div class="flex gap-3 pt-4">
-                    <button onclick="submitAuth('login')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500 transition">Войти</button>
-                    <button onclick="submitAuth('register')" class="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition">Регистрация</button>
-                </div>
+            <div class="flex mb-6 border-b border-slate-700">
+                <div class="auth-tab active flex-1 text-center" onclick="switchAuthTab('login')">Вход</div>
+                <div class="auth-tab flex-1 text-center" onclick="switchAuthTab('register')">Регистрация</div>
+            </div>
+            
+            <!-- Форма Входа -->
+            <div id="auth-form-login" class="auth-form active space-y-4">
+                <input type="text" id="login-identifier" placeholder="Логин или Email" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <input type="password" id="login-password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <button onclick="submitAuth('login')" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500 transition">Войти</button>
                 <div class="text-center pt-2">
                     <button onclick="toggleModal('auth-modal'); toggleModal('forgot-password-modal')" class="text-xs text-slate-400 hover:text-white underline">Забыли пароль?</button>
                 </div>
+            </div>
+
+            <!-- Форма Регистрации -->
+            <div id="auth-form-register" class="auth-form space-y-4">
+                <input type="text" id="reg-username" placeholder="Логин" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <input type="email" id="reg-email" placeholder="Email" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <input type="password" id="reg-password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
+                <button onclick="submitAuth('register')" class="w-full bg-slate-800 text-white border border-slate-600 py-3 rounded-xl font-bold hover:bg-slate-700 transition">Зарегистрироваться</button>
             </div>
         </div>
     </div>
@@ -333,10 +369,18 @@
         let adminChartInstance = null;
         let adminUsersData = [];
 
+        // Отлов глобальных ошибок JS
+        window.addEventListener('error', (e) => console.error("Global UI Error:", e.error));
+
         window.onload = () => { 
-            if (currentUser) { updateNavUI(); handleRoute(); } 
-            else { navigate('/welcome'); }
+            if (currentUser) { 
+                updateNavUI(); 
+                handleRoute(); // Сразу переходим на нужную страницу
+            } else { 
+                navigate('/welcome'); // Гарантированно показываем экран входа
+            }
         };
+        
         window.addEventListener('hashchange', handleRoute);
 
         // --- РОУТИНГ ---
@@ -409,13 +453,29 @@
             }
         }
 
+        function switchAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(`auth-form-${tab}`).classList.add('active');
+        }
+
         // --- АВТОРИЗАЦИЯ ---
         async function submitAuth(type) {
             try {
-                const u = document.getElementById('auth-username').value;
-                const p = document.getElementById('auth-password').value;
-                const payload = { username: u, password: p };
-                if (type === 'register') payload.email = document.getElementById('auth-email').value;
+                let payload = {};
+                if (type === 'login') {
+                    payload = {
+                        username_or_email: document.getElementById('login-identifier').value,
+                        password: document.getElementById('login-password').value
+                    };
+                } else {
+                    payload = {
+                        username: document.getElementById('reg-username').value,
+                        email: document.getElementById('reg-email').value,
+                        password: document.getElementById('reg-password').value
+                    };
+                }
 
                 const res = await fetch(`/api/v1/${type}`, { 
                     method: 'POST', 
@@ -429,7 +489,6 @@
                     updateNavUI(); 
                     toggleModal('auth-modal'); 
                     navigate('/dashboard');
-                    handleRoute();
                 } else { 
                     const errorData = await res.json();
                     alert(errorData.detail || 'Ошибка авторизации'); 
@@ -437,12 +496,17 @@
             } catch (err) { alert("Ошибка соединения с сервером."); console.error(err); }
         }
         
-        function logout() { localStorage.removeItem('kanban_user'); navigate('/welcome'); window.location.reload(); }
+        function logout() { 
+            localStorage.removeItem('kanban_user'); 
+            currentUser = null;
+            navigate('/welcome'); 
+            window.location.reload(); 
+        }
 
         async function forgotPassword() {
             const email = document.getElementById('fp-email').value;
             const res = await fetch('/api/v1/auth/forgot-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email})});
-            if(res.ok) { alert('Письмо отправлено!'); toggleModal('forgot-password-modal'); } else { alert((await res.json()).detail); }
+            if(res.ok) { alert('Заявка отправлена администратору!'); toggleModal('forgot-password-modal'); } else { alert((await res.json()).detail); }
         }
 
         // --- ПРОФИЛЬ ---
@@ -478,6 +542,7 @@
             if(!currentUser.is_superuser) { navigate('/dashboard'); return; }
             await renderAdminStats();
             await loadAdminUsers();
+            await loadAdminRequests();
         }
 
         function switchAdminTab(tab, element) {
@@ -485,6 +550,7 @@
             element.classList.add('active');
             document.getElementById('admin-tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
             document.getElementById('admin-tab-users').style.display = tab === 'users' ? 'block' : 'none';
+            document.getElementById('admin-tab-requests').style.display = tab === 'requests' ? 'block' : 'none';
         }
 
         async function renderAdminStats() {
@@ -548,6 +614,50 @@
                         </td>
                     </tr>`;
             });
+        }
+
+        async function loadAdminRequests() {
+            const res = await fetch(`/api/v1/admin/password-requests?user_id=${currentUser.id}`);
+            if(!res.ok) return;
+            const requests = await res.json();
+            const tbody = document.getElementById('admin-requests-table'); tbody.innerHTML = '';
+            requests.forEach(r => {
+                const date = new Date(r.created_at).toLocaleString('ru-RU');
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/50 transition">
+                        <td class="py-3 px-4 font-mono text-xs text-slate-500">REQ-${r.id}</td>
+                        <td class="py-3 px-4 font-bold text-white">${r.user.username}</td>
+                        <td class="py-3 px-4 text-slate-400 text-sm">${r.user.email}</td>
+                        <td class="py-3 px-4 text-slate-400 text-sm">${date}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="adminOpenResolveRequest(${r.id})" class="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded hover:bg-emerald-500/30 text-sm font-bold">Установить пароль</button>
+                        </td>
+                    </tr>`;
+            });
+            if(requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">Нет активных заявок</td></tr>';
+            }
+        }
+
+        function adminOpenResolveRequest(reqId) {
+            document.getElementById('admin-req-id').value = reqId;
+            document.getElementById('admin-req-pwd').value = Math.random().toString(36).slice(-8);
+            toggleModal('admin-resolve-req-modal');
+        }
+
+        async function adminResolveRequestSubmit() {
+            const reqId = document.getElementById('admin-req-id').value;
+            const pwd = document.getElementById('admin-req-pwd').value;
+            const res = await fetch(`/api/v1/admin/password-requests/${reqId}/resolve?user_id=${currentUser.id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({new_password: pwd}) 
+            });
+            if(res.ok) { 
+                alert('Пароль обновлен, заявка закрыта! Сообщите новый пароль пользователю.'); 
+                toggleModal('admin-resolve-req-modal'); 
+                loadAdminRequests();
+            } else { alert('Ошибка при обработке заявки'); }
         }
 
         function adminOpenResetPwd(uid) {
@@ -673,74 +783,28 @@
 
         function openCreateColumnModal(id, title) { 
             if(id) { 
-                document.getElementById('col-id').value = id; 
-                document.getElementById('col-title').value = title; 
-                document.getElementById('col-modal-buttons').innerHTML = `<button onclick="updateCol()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button><button onclick="deleteCol()" class="bg-red-50 text-red-600 px-4 rounded-xl font-bold">Удалить</button>`; 
+                document.getElementById('col-id').value = id; document.getElementById('col-title').value = title; document.getElementById('col-modal-buttons').innerHTML = `<button onclick="updateCol()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button><button onclick="deleteCol()" class="bg-red-50 text-red-600 px-4 rounded-xl font-bold">Удалить</button>`; 
             } else {
-                document.getElementById('col-id').value = '';
-                document.getElementById('col-title').value = ''; 
-                document.getElementById('col-modal-buttons').innerHTML = `<button onclick="saveCol()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Создать</button>`; 
+                document.getElementById('col-id').value = ''; document.getElementById('col-title').value = ''; document.getElementById('col-modal-buttons').innerHTML = `<button onclick="saveCol()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Создать</button>`; 
             }
             toggleModal('column-modal'); 
         }
-        
-        async function saveCol() { 
-            const orderCount = currentBoard.columns ? currentBoard.columns.length : 0;
-            await fetch(`/api/v1/boards/${currentBoard.id}/columns?user_id=${currentUser.id}`, {
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({
-                    title: document.getElementById('col-title').value,
-                    order: orderCount
-                })
-            }); 
-            toggleModal('column-modal'); 
-            await loadBoardView(currentBoard.id); 
-        }
-        
-        async function updateCol() { 
-            await fetch(`/api/v1/columns/${document.getElementById('col-id').value}?user_id=${currentUser.id}`, {
-                method: 'PUT', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({title: document.getElementById('col-title').value})
-            }); 
-            toggleModal('column-modal'); 
-            await loadBoardView(currentBoard.id); 
-        }
-        
-        async function deleteCol() { 
-            if(!confirm('Удалить колонку?')) return; 
-            await fetch(`/api/v1/columns/${document.getElementById('col-id').value}?user_id=${currentUser.id}`, {method: 'DELETE'}); 
-            toggleModal('column-modal'); 
-            await loadBoardView(currentBoard.id); 
-        }
+        async function saveCol() { const orderCount = currentBoard.columns ? currentBoard.columns.length : 0; await fetch(`/api/v1/boards/${currentBoard.id}/columns?user_id=${currentUser.id}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: document.getElementById('col-title').value, order: orderCount})}); toggleModal('column-modal'); loadBoardView(currentBoard.id); }
+        async function updateCol() { await fetch(`/api/v1/columns/${document.getElementById('col-id').value}?user_id=${currentUser.id}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: document.getElementById('col-title').value})}); toggleModal('column-modal'); loadBoardView(currentBoard.id); }
+        async function deleteCol() { if(!confirm('Удалить колонку?')) return; await fetch(`/api/v1/columns/${document.getElementById('col-id').value}?user_id=${currentUser.id}`, {method: 'DELETE'}); toggleModal('column-modal'); loadBoardView(currentBoard.id); }
 
         function popAssignees(sid = 0) { const s = document.getElementById('task-assignee'); s.innerHTML = '<option value="0">Без исполнителя</option>'; currentBoard.member_associations.forEach(m => { s.innerHTML += `<option value="${m.user.id}" ${m.user.id === sid ? 'selected' : ''}>${m.user.username}</option>`; }); }
         
         function openCreateTaskModal() { document.getElementById('task-id').value = ''; document.getElementById('task-title').value = ''; document.getElementById('task-desc').value = ''; document.getElementById('task-attachments-list').innerHTML = ''; popAssignees(); document.getElementById('upload-file-btn').style.display = 'none'; document.getElementById('task-modal-buttons').innerHTML = `<button onclick="saveTask()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать задачу</button>`; toggleModal('task-modal'); }
-        
         function openEditTaskModal(t) { document.getElementById('task-id').value = t.id; document.getElementById('task-title').value = t.title; document.getElementById('task-desc').value = t.description || ''; document.getElementById('task-priority').value = (t.priority || 'MEDIUM').toUpperCase(); popAssignees(t.assignee_id); document.getElementById('upload-file-btn').style.display = 'block'; const al = document.getElementById('task-attachments-list'); al.innerHTML = ''; (t.attachments || []).forEach(a => { al.innerHTML += `<a href="${a.file_url}" target="_blank" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded-lg border border-blue-200 text-xs font-bold transition">📎 ${a.file_name}</a>`; }); document.getElementById('task-modal-buttons').innerHTML = `<button onclick="updateTask()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500">Сохранить</button><button onclick="deleteTask()" class="bg-red-50 text-red-600 px-6 rounded-xl font-bold hover:bg-red-100">Удалить</button>`; toggleModal('task-modal'); }
         
-        async function saveTask() { 
-            const aid = parseInt(document.getElementById('task-assignee').value); 
-            const res = await fetch(`/api/v1/tasks?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, column_id: currentBoard.columns[0].id, assignee_id: aid > 0 ? aid : null}) }); 
-            if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка создания задачи. Проверьте права и корректность заполнения."); 
-        }
-        async function updateTask() { 
-            const aid = parseInt(document.getElementById('task-assignee').value); 
-            const res = await fetch(`/api/v1/tasks/${document.getElementById('task-id').value}?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, assignee_id: aid}) }); 
-            if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка сохранения."); 
-        }
+        async function saveTask() { const aid = parseInt(document.getElementById('task-assignee').value); const res = await fetch(`/api/v1/tasks?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, column_id: currentBoard.columns[0].id, assignee_id: aid > 0 ? aid : null}) }); if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка создания задачи."); }
+        async function updateTask() { const aid = parseInt(document.getElementById('task-assignee').value); const res = await fetch(`/api/v1/tasks/${document.getElementById('task-id').value}?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, assignee_id: aid}) }); if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка сохранения."); }
         async function deleteTask() { if(!confirm('Удалить задачу?')) return; await fetch(`/api/v1/tasks/${document.getElementById('task-id').value}?user_id=${currentUser.id}`, {method: 'DELETE'}); toggleModal('task-modal'); await loadBoardView(currentBoard.id); }
         async function uploadTaskFile(e) { const f = e.target.files[0], tid = document.getElementById('task-id').value; if(!f || !tid) return; const fd = new FormData(); fd.append('file', f); await fetch(`/api/v1/tasks/${tid}/attachments?user_id=${currentUser.id}`, {method: 'POST', body: fd}); await loadBoardView(currentBoard.id); toggleModal('task-modal'); }
         
         function allowDrop(ev) { ev.preventDefault(); }
-        async function drop(ev, colId) { 
-            ev.preventDefault(); 
-            const taskId = ev.dataTransfer.getData('text');
-            await fetch(`/api/v1/tasks/${taskId}?column_id=${colId}&user_id=${currentUser.id}`, { method: 'PATCH' }); 
-            await loadBoardView(currentBoard.id); 
-        }
+        async function drop(ev, colId) { ev.preventDefault(); await fetch(`/api/v1/tasks/${ev.dataTransfer.getData('text')}?column_id=${colId}&user_id=${currentUser.id}`, { method: 'PATCH' }); await loadBoardView(currentBoard.id); }
     </script>
 </body>
 </html>

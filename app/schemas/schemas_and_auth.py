@@ -6,7 +6,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from typing import Optional, List, Any
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 import bcrypt
 
@@ -31,7 +31,7 @@ class AuthHandler:
     @staticmethod
     def create_access_token(data: dict):
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire})
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -43,7 +43,7 @@ class UserCreate(UserBase):
     password: str
 
 class UserLogin(BaseModel):
-    username: str
+    username_or_email: str
     password: str
 
 class PasswordChange(BaseModel):
@@ -61,6 +61,20 @@ class UserRead(UserBase):
     description: Optional[str] = None
     avatar_url: Optional[str] = None
     is_superuser: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+class PasswordResetRequestRead(BaseModel):
+    id: int
+    user_id: int
+    user: UserRead
+    status: Any
+    created_at: datetime
+    
+    @field_validator('status', mode='before')
+    @classmethod
+    def transform_status(cls, v: Any) -> str:
+        return str(v.value) if hasattr(v, 'value') else str(v)
+    
     model_config = ConfigDict(from_attributes=True)
 
 class UserProfileUpdate(BaseModel):
@@ -90,11 +104,25 @@ class TaskCreate(TaskBase):
     column_id: int
     assignee_id: Optional[int] = None
 
+    @field_validator('assignee_id', mode='before')
+    @classmethod
+    def transform_assignee_id(cls, v: Any) -> Optional[int]:
+        if v == 0 or v == "0" or v is None:
+            return None
+        return int(v)
+
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[str] = None
     assignee_id: Optional[int] = None
+
+    @field_validator('assignee_id', mode='before')
+    @classmethod
+    def transform_assignee_id(cls, v: Any) -> Optional[int]:
+        if v == 0 or v == "0" or v is None:
+            return None
+        return int(v)
 
 class TaskRead(BaseModel):
     id: int
@@ -155,4 +183,4 @@ class SystemStats(BaseModel):
     total_users: int
     total_boards: int
     total_tasks: int
-    total_deleted_tasks: int  # Новое поле статистики
+    total_deleted_tasks: int

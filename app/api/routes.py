@@ -22,7 +22,7 @@ from ..schemas.schemas_and_auth import (
     UserCreate, UserLogin, UserRead, AuthHandler, TaskCreate, TaskUpdate, 
     TaskRead, BoardRead, MemberInvite, ColumnCreate, ColumnUpdate, ColumnRead, 
     BoardCreate, BoardUpdate, UserProfileUpdate, MemberRoleUpdate, TaskAttachmentRead,
-    SystemStats, PasswordChange, AdminPasswordReset, ForgotPassword
+    SystemStats, PasswordChange, AdminPasswordReset, ForgotPassword, PasswordResetRequestRead
 )
 from ..services.kanban import KanbanService
 
@@ -96,7 +96,11 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=UserRead)
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.username == user_data.username))
+    query = select(User).where(
+        (User.username == user_data.username_or_email) | 
+        (User.email == user_data.username_or_email)
+    )
+    result = await db.execute(query)
     user = result.scalar_one_or_none()
     if not user or not AuthHandler.verify_password(user_data.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверные данные")
@@ -104,9 +108,10 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.post("/auth/forgot-password")
 async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == data.email))
-    if not result.scalar_one_or_none(): raise HTTPException(status_code=404, detail="Email не найден")
-    return {"detail": "Письмо отправлено"}
+    success = await KanbanService.create_password_reset_request(db, data.email)
+    if not success: 
+        raise HTTPException(status_code=404, detail="Аккаунт с таким Email не найден")
+    return {"detail": "Заявка отправлена администратору. Ожидайте письма с новым паролем."}
 
 # --- ADMIN ROUTES ---
 @router.get("/admin/stats", response_model=SystemStats)
@@ -133,6 +138,20 @@ async def admin_delete_user(target_id: int, user_id: int, db: AsyncSession = Dep
     success = await KanbanService.admin_delete_user(db, target_id)
     if not success: raise HTTPException(status_code=404)
     return {"detail": "Удален"}
+
+@router.get("/admin/password-requests", response_model=List[PasswordResetRequestRead])
+async def get_password_requests(user_id: int, db: AsyncSession = Depends(get_db)):
+    await check_superuser(db, user_id)
+    return await KanbanService.get_pending_password_requests(db)
+
+@router.post("/admin/password-requests/{request_id}/resolve")
+async def resolve_password_request(request_id: int, data: AdminPasswordReset, user_id: int, db: AsyncSession = Depends(get_db)):
+    await check_superuser(db, user_id)
+    hashed_pw = AuthHandler.get_password_hash(data.new_password)
+    success = await KanbanService.resolve_password_request(db, request_id, hashed_pw)
+    if not success: raise HTTPException(status_code=404, detail="Заявка не найдена")
+    return {"detail": "Пароль установлен, заявка закрыта"}
+
 
 # --- BOARD ROUTES ---
 @router.get("/boards", response_model=List[BoardRead])
@@ -227,17 +246,14 @@ async def update_task_column(task_id: int, column_id: int, user_id: int, db: Asy
     if board_id != await get_board_id_by_column(db, column_id):
         raise HTTPException(status_code=400, detail="Нельзя переместить в чужую доску")
     
-    result = await db.execute(select(Task).where(Task.id == task_id))
-    task = result.scalar_one_or_none()
-    task.column_id = column_id
-    await db.commit()
-    
-    # Решение ошибки при перетаскивании (MissingGreenlet)
-    res2 = await db.execute(
+    result = await db.execute(
         select(Task).where(Task.id == task_id)
         .options(selectinload(Task.assignee), selectinload(Task.attachments))
     )
-    return res2.scalar_one()
+    task = result.scalar_one_or_none()
+    task.column_id = column_id
+    await db.commit()
+    return task
 
 @router.post("/tasks/{task_id}/attachments", response_model=TaskAttachmentRead)
 async def upload_task_file(task_id: int, user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):

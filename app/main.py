@@ -23,7 +23,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Kanban Prototype", lifespan=lifespan)
 
-# Создаем директории для загрузки файлов
 os.makedirs("app/static/media", exist_ok=True)
 os.makedirs("app/static/uploads", exist_ok=True)
 os.makedirs("app/templates", exist_ok=True)

@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List
-from ..models.database_and_models import Board, Column, Task, TaskPriority, User, BoardMember, BoardRole, TaskAttachment
+from ..models.database_and_models import Board, Column, Task, TaskPriority, User, BoardMember, BoardRole, TaskAttachment, PasswordResetRequest, ResetRequestStatus
 
 class KanbanService:
     # --- ADMIN / SYSTEM ---
@@ -10,7 +10,6 @@ class KanbanService:
     async def get_system_stats(db: AsyncSession):
         users_count = await db.scalar(select(func.count(User.id)))
         boards_count = await db.scalar(select(func.count(Board.id)))
-        # Надежная проверка: берем всё, что False или None
         tasks_count = await db.scalar(select(func.count(Task.id)).where((Task.is_deleted == False) | (Task.is_deleted.is_(None))))
         deleted_count = await db.scalar(select(func.count(Task.id)).where(Task.is_deleted == True))
         return {
@@ -42,6 +41,38 @@ class KanbanService:
             await db.commit()
             return True
         return False
+
+    @staticmethod
+    async def create_password_reset_request(db: AsyncSession, email: str):
+        user = await db.scalar(select(User).where(User.email == email))
+        if not user:
+            return False
+        existing = await db.scalar(select(PasswordResetRequest).where(PasswordResetRequest.user_id == user.id, PasswordResetRequest.status == ResetRequestStatus.PENDING))
+        if not existing:
+            req = PasswordResetRequest(user_id=user.id)
+            db.add(req)
+            await db.commit()
+        return True
+
+    @staticmethod
+    async def get_pending_password_requests(db: AsyncSession):
+        result = await db.execute(
+            select(PasswordResetRequest)
+            .where(PasswordResetRequest.status == ResetRequestStatus.PENDING)
+            .options(selectinload(PasswordResetRequest.user))
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    async def resolve_password_request(db: AsyncSession, request_id: int, new_hashed_password: str):
+        req = await db.scalar(select(PasswordResetRequest).where(PasswordResetRequest.id == request_id).options(selectinload(PasswordResetRequest.user)))
+        if not req:
+            return False
+        
+        req.user.hashed_password = new_hashed_password
+        req.status = ResetRequestStatus.RESOLVED
+        await db.commit()
+        return True
 
     # --- BOARDS & MEMBERS ---
     @staticmethod
@@ -150,7 +181,6 @@ class KanbanService:
         db.add(new_col)
         await db.commit()
         
-        # Полная подгрузка связей во избежание MissingGreenlet Error
         result = await db.execute(
             select(Column).where(Column.id == new_col.id)
             .options(
@@ -162,21 +192,18 @@ class KanbanService:
 
     @staticmethod
     async def update_column(db: AsyncSession, column_id: int, title: str):
-        result = await db.execute(select(Column).where(Column.id == column_id))
+        result = await db.execute(
+            select(Column).where(Column.id == column_id)
+            .options(
+                selectinload(Column.tasks).selectinload(Task.assignee),
+                selectinload(Column.tasks).selectinload(Task.attachments)
+            )
+        )
         col = result.scalar_one_or_none()
         if col:
             col.title = title
             await db.commit()
-            
-            # Перезапрашиваем со всеми связями
-            res2 = await db.execute(
-                select(Column).where(Column.id == column_id)
-                .options(
-                    selectinload(Column.tasks).selectinload(Task.assignee),
-                    selectinload(Column.tasks).selectinload(Task.attachments)
-                )
-            )
-            return res2.scalar_one()
+            return col
         return None
 
     @staticmethod
