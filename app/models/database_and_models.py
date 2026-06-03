@@ -20,7 +20,6 @@ async_session = async_sessionmaker(engine, expire_on_commit=False)
 class Base(DeclarativeBase):
     pass
 
-# --- ENUMS ---
 class TaskPriority(enum.Enum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -36,7 +35,6 @@ class ResetRequestStatus(enum.Enum):
     PENDING = "PENDING"
     RESOLVED = "RESOLVED"
 
-# --- ASSOCIATION OBJECT ---
 class BoardMember(Base):
     __tablename__ = "board_members"
     
@@ -47,7 +45,6 @@ class BoardMember(Base):
     user: Mapped["User"] = relationship(back_populates="board_associations")
     board: Mapped["Board"] = relationship(back_populates="member_associations")
 
-# --- MODELS ---
 class User(Base):
     __tablename__ = "users"
     
@@ -57,14 +54,12 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     avatar_url: Mapped[str | None] = mapped_column(String(255))
-    
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     
-    board_associations: Mapped[list["BoardMember"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    board_associations: Mapped[list["BoardMember"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     assigned_tasks: Mapped[list["Task"]] = relationship(back_populates="assignee")
     password_requests: Mapped[list["PasswordResetRequest"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class PasswordResetRequest(Base):
     __tablename__ = "password_reset_requests"
@@ -84,9 +79,7 @@ class Board(Base):
     description: Mapped[str | None] = mapped_column(Text)
     background_url: Mapped[str | None] = mapped_column(String(255))
     
-    member_associations: Mapped[list["BoardMember"]] = relationship(
-        back_populates="board", cascade="all, delete-orphan"
-    )
+    member_associations: Mapped[list["BoardMember"]] = relationship(back_populates="board", cascade="all, delete-orphan")
     columns: Mapped[list["Column"]] = relationship(back_populates="board", cascade="all, delete-orphan")
 
 class Column(Base):
@@ -106,18 +99,15 @@ class Task(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
-    priority: Mapped[TaskPriority] = mapped_column(
-        SqlEnum(TaskPriority, native_enum=False), 
-        default=TaskPriority.MEDIUM
-    )
+    priority: Mapped[TaskPriority] = mapped_column(SqlEnum(TaskPriority, native_enum=False), default=TaskPriority.MEDIUM)
     column_id: Mapped[int] = mapped_column(ForeignKey("columns.id", ondelete="CASCADE"))
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     
     column: Mapped["Column"] = relationship(back_populates="tasks")
     assignee: Mapped["User"] = relationship(back_populates="assigned_tasks")
     attachments: Mapped[list["TaskAttachment"]] = relationship(back_populates="task", cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="task", cascade="all, delete-orphan")
 
 class TaskAttachment(Base):
     __tablename__ = "task_attachments"
@@ -128,3 +118,15 @@ class TaskAttachment(Base):
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
     
     task: Mapped["Task"] = relationship(back_populates="attachments")
+
+class Comment(Base):
+    __tablename__ = "comments"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    user: Mapped["User"] = relationship(back_populates="comments")
+    task: Mapped["Task"] = relationship(back_populates="comments")

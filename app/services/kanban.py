@@ -2,10 +2,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List
-from ..models.database_and_models import Board, Column, Task, TaskPriority, User, BoardMember, BoardRole, TaskAttachment, PasswordResetRequest, ResetRequestStatus
+from ..models.database_and_models import Board, Column, Task, TaskPriority, User, BoardMember, BoardRole, TaskAttachment, PasswordResetRequest, ResetRequestStatus, Comment
 
 class KanbanService:
-    # --- ADMIN / SYSTEM ---
     @staticmethod
     async def get_system_stats(db: AsyncSession):
         users_count = await db.scalar(select(func.count(User.id)))
@@ -13,10 +12,8 @@ class KanbanService:
         tasks_count = await db.scalar(select(func.count(Task.id)).where((Task.is_deleted == False) | (Task.is_deleted.is_(None))))
         deleted_count = await db.scalar(select(func.count(Task.id)).where(Task.is_deleted == True))
         return {
-            "total_users": users_count or 0, 
-            "total_boards": boards_count or 0, 
-            "total_tasks": tasks_count or 0,
-            "total_deleted_tasks": deleted_count or 0
+            "total_users": users_count or 0, "total_boards": boards_count or 0, 
+            "total_tasks": tasks_count or 0, "total_deleted_tasks": deleted_count or 0
         }
 
     @staticmethod
@@ -45,8 +42,7 @@ class KanbanService:
     @staticmethod
     async def create_password_reset_request(db: AsyncSession, email: str):
         user = await db.scalar(select(User).where(User.email == email))
-        if not user:
-            return False
+        if not user: return False
         existing = await db.scalar(select(PasswordResetRequest).where(PasswordResetRequest.user_id == user.id, PasswordResetRequest.status == ResetRequestStatus.PENDING))
         if not existing:
             req = PasswordResetRequest(user_id=user.id)
@@ -57,24 +53,19 @@ class KanbanService:
     @staticmethod
     async def get_pending_password_requests(db: AsyncSession):
         result = await db.execute(
-            select(PasswordResetRequest)
-            .where(PasswordResetRequest.status == ResetRequestStatus.PENDING)
-            .options(selectinload(PasswordResetRequest.user))
+            select(PasswordResetRequest).where(PasswordResetRequest.status == ResetRequestStatus.PENDING).options(selectinload(PasswordResetRequest.user))
         )
         return result.scalars().all()
 
     @staticmethod
     async def resolve_password_request(db: AsyncSession, request_id: int, new_hashed_password: str):
         req = await db.scalar(select(PasswordResetRequest).where(PasswordResetRequest.id == request_id).options(selectinload(PasswordResetRequest.user)))
-        if not req:
-            return False
-        
+        if not req: return False
         req.user.hashed_password = new_hashed_password
         req.status = ResetRequestStatus.RESOLVED
         await db.commit()
         return True
 
-    # --- BOARDS & MEMBERS ---
     @staticmethod
     async def get_user_boards(db: AsyncSession, user_id: int) -> List[Board]:
         result = await db.execute(
@@ -82,6 +73,7 @@ class KanbanService:
             .options(
                 selectinload(Board.columns).selectinload(Column.tasks).selectinload(Task.assignee),
                 selectinload(Board.columns).selectinload(Column.tasks).selectinload(Task.attachments),
+                selectinload(Board.columns).selectinload(Column.tasks).selectinload(Task.comments).selectinload(Comment.user),
                 selectinload(Board.member_associations).selectinload(BoardMember.user)
             )
         )
@@ -89,6 +81,8 @@ class KanbanService:
         for board in boards:
             for col in board.columns:
                 col.tasks = [t for t in col.tasks if not getattr(t, 'is_deleted', False)]
+                for t in col.tasks: # Сортируем комментарии от старых к новым
+                    t.comments = sorted(t.comments, key=lambda x: x.created_at)
         return boards
 
     @staticmethod
@@ -96,14 +90,11 @@ class KanbanService:
         new_board = Board(title=title)
         db.add(new_board)
         await db.flush()
-
         owner_assoc = BoardMember(user_id=user_id, board_id=new_board.id, role=BoardRole.OWNER)
         db.add(owner_assoc)
-
         default_columns = ["В плане", "В работе", "Готово"]
         for index, col_title in enumerate(default_columns):
             db.add(Column(title=col_title, order=index, board_id=new_board.id))
-        
         await db.commit()
         await db.refresh(new_board)
         return new_board
@@ -132,13 +123,10 @@ class KanbanService:
         user_res = await db.execute(select(User).where(User.email == email))
         user = user_res.scalar_one_or_none()
         if not user: return None, "Пользователь не найден"
-
         member_res = await db.execute(select(BoardMember).where(BoardMember.board_id == board_id, BoardMember.user_id == user.id))
         if member_res.scalar_one_or_none(): return None, "Пользователь уже в доске"
-
         try: role_enum = BoardRole[role_str.upper()]
         except KeyError: role_enum = BoardRole.MEMBER
-
         db.add(BoardMember(user_id=user.id, board_id=board_id, role=role_enum))
         await db.commit()
         return True, "Успешно"
@@ -174,18 +162,17 @@ class KanbanService:
             await db.refresh(user)
         return user
 
-    # --- COLUMN & TASK MANAGEMENT ---
     @staticmethod
     async def create_column(db: AsyncSession, board_id: int, title: str, order: int):
         new_col = Column(title=title, order=order, board_id=board_id)
         db.add(new_col)
         await db.commit()
-        
         result = await db.execute(
             select(Column).where(Column.id == new_col.id)
             .options(
                 selectinload(Column.tasks).selectinload(Task.assignee),
-                selectinload(Column.tasks).selectinload(Task.attachments)
+                selectinload(Column.tasks).selectinload(Task.attachments),
+                selectinload(Column.tasks).selectinload(Task.comments).selectinload(Comment.user)
             )
         )
         return result.scalar_one()
@@ -196,7 +183,8 @@ class KanbanService:
             select(Column).where(Column.id == column_id)
             .options(
                 selectinload(Column.tasks).selectinload(Task.assignee),
-                selectinload(Column.tasks).selectinload(Task.attachments)
+                selectinload(Column.tasks).selectinload(Task.attachments),
+                selectinload(Column.tasks).selectinload(Task.comments).selectinload(Comment.user)
             )
         )
         col = result.scalar_one_or_none()
@@ -220,21 +208,15 @@ class KanbanService:
     async def create_task(db: AsyncSession, task_data):
         try: priority_enum = TaskPriority[task_data.priority.upper()]
         except KeyError: priority_enum = TaskPriority.MEDIUM
-
         new_task = Task(
-            title=task_data.title, 
-            description=task_data.description,
-            column_id=task_data.column_id, 
-            priority=priority_enum, 
-            assignee_id=task_data.assignee_id,
-            is_deleted=False
+            title=task_data.title, description=task_data.description,
+            column_id=task_data.column_id, priority=priority_enum, assignee_id=task_data.assignee_id, is_deleted=False
         )
         db.add(new_task)
         await db.commit()
-        
         result = await db.execute(
             select(Task).where(Task.id == new_task.id)
-            .options(selectinload(Task.assignee), selectinload(Task.attachments))
+            .options(selectinload(Task.assignee), selectinload(Task.attachments), selectinload(Task.comments).selectinload(Comment.user))
         )
         return result.scalar_one()
 
@@ -250,12 +232,10 @@ class KanbanService:
                 except KeyError: pass 
             if task_data.assignee_id is not None:
                 task.assignee_id = task_data.assignee_id if task_data.assignee_id > 0 else None
-            
             await db.commit()
-            
             result_updated = await db.execute(
                 select(Task).where(Task.id == task_id)
-                .options(selectinload(Task.assignee), selectinload(Task.attachments))
+                .options(selectinload(Task.assignee), selectinload(Task.attachments), selectinload(Task.comments).selectinload(Comment.user))
             )
             return result_updated.scalar_one()
         return None
@@ -277,3 +257,12 @@ class KanbanService:
         await db.commit()
         await db.refresh(attachment)
         return attachment
+
+    @staticmethod
+    async def add_task_comment(db: AsyncSession, task_id: int, user_id: int, text: str):
+        comment = Comment(task_id=task_id, user_id=user_id, text=text)
+        db.add(comment)
+        await db.commit()
+        await db.refresh(comment)
+        res = await db.execute(select(Comment).where(Comment.id == comment.id).options(selectinload(Comment.user)))
+        return res.scalar_one()

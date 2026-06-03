@@ -9,11 +9,13 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from jose import jwt
 import bcrypt
+import os
 
 if not hasattr(bcrypt, "__about__"):
     bcrypt.__about__ = type('About', (object,), {'__version__': bcrypt.__version__})
 
-SECRET_KEY = "your-secret-key-here"
+# --- SECURITY CONFIG ---
+SECRET_KEY = os.getenv("SECRET_KEY", "key-for-development")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -32,7 +34,7 @@ class AuthHandler:
     def create_access_token(data: dict):
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire.timestamp()})
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 class UserBase(BaseModel):
@@ -74,7 +76,6 @@ class PasswordResetRequestRead(BaseModel):
     @classmethod
     def transform_status(cls, v: Any) -> str:
         return str(v.value) if hasattr(v, 'value') else str(v)
-    
     model_config = ConfigDict(from_attributes=True)
 
 class UserProfileUpdate(BaseModel):
@@ -95,6 +96,18 @@ class TaskAttachmentRead(BaseModel):
     file_url: str
     model_config = ConfigDict(from_attributes=True)
 
+class CommentBase(BaseModel):
+    text: str
+
+class CommentCreate(CommentBase):
+    pass
+
+class CommentRead(CommentBase):
+    id: int
+    created_at: datetime
+    user: UserRead
+    model_config = ConfigDict(from_attributes=True)
+
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -107,8 +120,7 @@ class TaskCreate(TaskBase):
     @field_validator('assignee_id', mode='before')
     @classmethod
     def transform_assignee_id(cls, v: Any) -> Optional[int]:
-        if v == 0 or v == "0" or v is None:
-            return None
+        if v == 0 or v == "0" or v is None: return None
         return int(v)
 
 class TaskUpdate(BaseModel):
@@ -120,8 +132,7 @@ class TaskUpdate(BaseModel):
     @field_validator('assignee_id', mode='before')
     @classmethod
     def transform_assignee_id(cls, v: Any) -> Optional[int]:
-        if v == 0 or v == "0" or v is None:
-            return None
+        if v == 0 or v == "0" or v is None: return None
         return int(v)
 
 class TaskRead(BaseModel):
@@ -133,6 +144,7 @@ class TaskRead(BaseModel):
     assignee_id: Optional[int] = None
     assignee: Optional[UserRead] = None
     attachments: List[TaskAttachmentRead] = []
+    comments: List[CommentRead] = []
     is_deleted: bool = False
     
     @field_validator('priority', mode='before')

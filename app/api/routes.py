@@ -22,7 +22,8 @@ from ..schemas.schemas_and_auth import (
     UserCreate, UserLogin, UserRead, AuthHandler, TaskCreate, TaskUpdate, 
     TaskRead, BoardRead, MemberInvite, ColumnCreate, ColumnUpdate, ColumnRead, 
     BoardCreate, BoardUpdate, UserProfileUpdate, MemberRoleUpdate, TaskAttachmentRead,
-    SystemStats, PasswordChange, AdminPasswordReset, ForgotPassword, PasswordResetRequestRead
+    SystemStats, PasswordChange, AdminPasswordReset, ForgotPassword, PasswordResetRequestRead,
+    CommentCreate, CommentRead
 )
 from ..services.kanban import KanbanService
 
@@ -96,10 +97,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=UserRead)
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
-    query = select(User).where(
-        (User.username == user_data.username_or_email) | 
-        (User.email == user_data.username_or_email)
-    )
+    query = select(User).where((User.username == user_data.username_or_email) | (User.email == user_data.username_or_email))
     result = await db.execute(query)
     user = result.scalar_one_or_none()
     if not user or not AuthHandler.verify_password(user_data.password, user.hashed_password):
@@ -109,9 +107,8 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
 @router.post("/auth/forgot-password")
 async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_db)):
     success = await KanbanService.create_password_reset_request(db, data.email)
-    if not success: 
-        raise HTTPException(status_code=404, detail="Аккаунт с таким Email не найден")
-    return {"detail": "Заявка отправлена администратору. Ожидайте письма с новым паролем."}
+    if not success: raise HTTPException(status_code=404, detail="Email не найден")
+    return {"detail": "Заявка отправлена"}
 
 # --- ADMIN ROUTES ---
 @router.get("/admin/stats", response_model=SystemStats)
@@ -150,8 +147,7 @@ async def resolve_password_request(request_id: int, data: AdminPasswordReset, us
     hashed_pw = AuthHandler.get_password_hash(data.new_password)
     success = await KanbanService.resolve_password_request(db, request_id, hashed_pw)
     if not success: raise HTTPException(status_code=404, detail="Заявка не найдена")
-    return {"detail": "Пароль установлен, заявка закрыта"}
-
+    return {"detail": "Пароль установлен"}
 
 # --- BOARD ROUTES ---
 @router.get("/boards", response_model=List[BoardRead])
@@ -243,8 +239,7 @@ async def delete_task(task_id: int, user_id: int, db: AsyncSession = Depends(get
 async def update_task_column(task_id: int, column_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
     board_id = await get_board_id_by_task(db, task_id)
     await check_board_permission(db, board_id, user_id, [BoardRole.OWNER, BoardRole.ADMIN, BoardRole.MEMBER])
-    if board_id != await get_board_id_by_column(db, column_id):
-        raise HTTPException(status_code=400, detail="Нельзя переместить в чужую доску")
+    if board_id != await get_board_id_by_column(db, column_id): raise HTTPException(status_code=400)
     
     result = await db.execute(
         select(Task).where(Task.id == task_id)
@@ -264,3 +259,9 @@ async def upload_task_file(task_id: int, user_id: int, file: UploadFile = File(.
     path = f"app/static/uploads/{filename}"
     with open(path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
     return await KanbanService.add_task_attachment(db, task_id, file.filename, f"/static/uploads/{filename}")
+
+@router.post("/tasks/{task_id}/comments", response_model=CommentRead)
+async def add_task_comment(task_id: int, comment: CommentCreate, user_id: int, db: AsyncSession = Depends(get_db)):
+    board_id = await get_board_id_by_task(db, task_id)
+    await check_board_permission(db, board_id, user_id, [BoardRole.OWNER, BoardRole.ADMIN, BoardRole.MEMBER])
+    return await KanbanService.add_task_comment(db, task_id, user_id, comment.text)

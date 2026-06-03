@@ -4,92 +4,138 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Система управления проектами</title>
+    <!-- Включение поддержки тем в Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
-        body { background-color: #0f172a; color: white; background-image: url('/static/media/background-image.jpg'); background-size: cover; background-position: center; background-attachment: fixed; }
-        body::before { content: ""; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: -1; }
-        .kanban-column { min-height: 75vh; background: hsl(0, 0%, 100%, 0.15); border-radius: 12px; border: 1px solid hsl(0, 0%, 100%, 0.2); backdrop-filter: blur(8px); width: 320px; flex-shrink: 0; transition: background 0.2s; }
-        .kanban-column.drag-over { background-color: rgba(229, 231, 235, 0.3); border: 2px dashed #3b82f6; }
-        .task-card { background: white; color: #1e293b; padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; transition: transform 0.1s; }
-        .task-card:hover { transform: translateY(-3px); border-color: #3b82f6; }
+        /* Базовый фон с изображением */
+        body { 
+            background-image: url('/static/media/background-image.jpg'); 
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed;
+            transition: color 0.3s;
+        }
+        
+        /* Оверлей фона: светлый для светлой темы, темный для темной */
+        body::before { 
+            content: ""; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(248, 250, 252, 0.85); /* Светлый slate-50 */
+            z-index: -1; 
+            transition: background-color 0.3s;
+        }
+        html.dark body::before {
+            background: rgba(15, 23, 42, 0.85); /* Темный slate-900 */
+        }
+
+        .kanban-column { min-height: 75vh; border-radius: 12px; width: 320px; flex-shrink: 0; transition: background 0.2s; }
+        .kanban-column.drag-over { background-color: rgba(99, 102, 241, 0.1); border: 2px dashed #6366f1; }
+        .task-card { padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; transition: transform 0.1s; }
+        .task-card:hover { transform: translateY(-3px); border-color: #6366f1; }
         .board-container { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+        
+        .modal { display: none; position: fixed; inset: 0; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); background: rgba(0,0,0,0.5); }
         .modal.active { display: flex; }
+        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 4px; }
+        
+        /* Стили приоритетов: адаптация под темы */
         .priority-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
         .priority-high { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .priority-medium { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
         .priority-low { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-        .board-card { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 16px; padding: 24px; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(10px); }
-        .board-card:hover { background: rgba(255, 255, 255, 0.15); transform: translateY(-4px); border-color: #3b82f6; }
+        html.dark .priority-high { background-color: rgba(153, 27, 27, 0.2); color: #fca5a5; border-color: rgba(248, 113, 113, 0.3); }
+        html.dark .priority-medium { background-color: rgba(146, 64, 14, 0.2); color: #fcd34d; border-color: rgba(251, 191, 36, 0.3); }
+        html.dark .priority-low { background-color: rgba(6, 95, 70, 0.2); color: #6ee7b7; border-color: rgba(52, 211, 153, 0.3); }
+
+        .board-card { border-radius: 16px; padding: 24px; cursor: pointer; transition: all 0.2s; }
+        .board-card:hover { transform: translateY(-4px); border-color: #6366f1; }
         .avatar-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; background-size: cover; background-position: center;}
         .view-section { display: none; }
         .view-section.active { display: block; }
         .admin-tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;}
-        .admin-tab.active { border-color: #6366f1; color: #818cf8; font-weight: bold; }
-        
-        /* Стили для вкладок модального окна авторизации */
-        .auth-tab { cursor: pointer; padding-bottom: 8px; border-bottom: 2px solid transparent; transition: all 0.3s; color: #94a3b8; }
-        .auth-tab.active { border-color: #818cf8; color: white; font-weight: bold; }
+        .admin-tab.active { border-color: #6366f1; color: #6366f1; font-weight: bold; }
+        .auth-tab { cursor: pointer; padding-bottom: 8px; border-bottom: 2px solid transparent; transition: all 0.3s;}
+        .auth-tab.active { border-color: #6366f1; font-weight: bold; }
         .auth-form { display: none; }
         .auth-form.active { display: block; animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="min-h-screen font-sans">
-    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+<body class="min-h-screen font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <!-- Инициализация темы -->
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <!-- НАВИГАЦИЯ -->
+    <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center sticky top-0 z-50 transition-colors duration-300">
         <div class="flex items-center gap-4">
             <a href="#/dashboard" class="flex items-center gap-3 cursor-pointer">
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/30">K</div>
-                <h1 class="text-xl font-bold tracking-tight hidden md:block">KanbanFlow</h1>
+                <h1 class="text-xl font-bold tracking-tight hidden md:block dark:text-white text-slate-800 transition-colors">KanbanFlow</h1>
             </a>
-            <div id="board-nav-tools" class="hidden flex items-center gap-4 ml-6 border-l border-slate-700 pl-6">
-                <a href="#/dashboard" class="text-slate-300 hover:text-white text-sm font-medium flex items-center gap-1">← Все проекты</a>
+            <div id="board-nav-tools" class="hidden flex items-center gap-4 ml-6 border-l border-slate-200 dark:border-slate-700 pl-6">
+                <a href="#/dashboard" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white text-sm font-medium flex items-center gap-1 transition-colors">← Все проекты</a>
             </div>
         </div>
         <div id="auth-section" class="flex items-center gap-4">
+            <!-- Кнопка переключения темы -->
+            <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Переключить тему">
+                🌓
+            </button>
+
             <div id="user-profile" class="hidden flex items-center gap-4">
-                <a href="#/admin" id="admin-btn" class="hidden text-sm font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg hover:bg-amber-500/30 transition">★ Админ</a>
-                <a href="#/profile" class="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 rounded-xl transition">
+                <a href="#/admin" id="admin-btn" class="hidden text-sm font-bold bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 px-3 py-1.5 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-500/30 transition">★ Админ</a>
+                <a href="#/profile" class="flex items-center gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-xl transition-colors">
                     <div class="text-right hidden md:block">
-                        <div id="username-label" class="text-sm font-bold text-white"></div>
-                        <div id="user-email-label" class="text-xs text-slate-400"></div>
+                        <div id="username-label" class="text-sm font-bold text-slate-800 dark:text-white transition-colors"></div>
+                        <div id="user-email-label" class="text-xs text-slate-500 dark:text-slate-400 transition-colors"></div>
                     </div>
                     <div id="nav-avatar" class="avatar-circle"></div>
                 </a>
-                <button onclick="logout()" class="bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500/30 transition">Выйти</button>
+                <button onclick="logout()" class="bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-500/20 dark:text-red-400 px-4 py-2 rounded-lg text-sm font-bold dark:hover:bg-red-500/30 transition">Выйти</button>
             </div>
             <button onclick="toggleModal('auth-modal')" id="login-btn" class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition">Войти</button>
         </div>
     </nav>
 
     <main class="p-8 relative">
-        <div id="user-tooltip" class="absolute hidden bg-white text-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 z-50 w-64 pointer-events-none opacity-0">
+        <!-- Всплывающая подсказка профиля -->
+        <div id="user-tooltip" class="absolute hidden bg-white dark:bg-slate-800 text-slate-800 dark:text-white p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 w-64 pointer-events-none opacity-0 transition-colors">
             <div class="flex items-center gap-3 mb-3">
                 <div id="tt-avatar" class="avatar-circle w-12 h-12 text-lg"></div>
                 <div>
                     <div id="tt-name" class="font-bold leading-tight">Name</div>
-                    <div id="tt-email" class="text-xs text-slate-500">email</div>
+                    <div id="tt-email" class="text-xs text-slate-500 dark:text-slate-400">email</div>
                 </div>
             </div>
-            <div id="tt-desc" class="text-sm text-slate-600 border-t pt-2 border-slate-100"></div>
+            <div id="tt-desc" class="text-sm text-slate-600 dark:text-slate-300 border-t pt-2 border-slate-100 dark:border-slate-700"></div>
         </div>
 
         <div id="views-container">
             <!-- ПРИВЕТСТВЕННЫЙ ЭКРАН -->
             <div id="view-welcome" class="view-section text-center py-20">
-                <h2 class="text-5xl font-black text-white mb-6 drop-shadow-lg tracking-tight">Управляйте проектами легко</h2>
-                <p class="text-slate-300 max-w-lg mx-auto text-lg mb-8">Войдите в систему или создайте аккаунт.</p>
+                <h2 class="text-5xl font-black mb-6 drop-shadow-lg tracking-tight text-slate-900 dark:text-white transition-colors">Управляйте проектами легко</h2>
+                <p class="text-slate-600 dark:text-slate-300 max-w-lg mx-auto text-lg mb-8 transition-colors">Войдите в систему или создайте аккаунт.</p>
                 <button onclick="toggleModal('auth-modal')" class="bg-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg hover:bg-indigo-500 transition">Начать работу</button>
             </div>
 
             <!-- ДАШБОРД -->
             <div id="view-dashboard" class="view-section max-w-6xl mx-auto">
                 <div class="flex justify-between items-end mb-8">
-                    <h2 class="text-4xl font-black text-white mb-2">Ваши проекты</h2>
+                    <h2 class="text-4xl font-black mb-2 text-slate-900 dark:text-white transition-colors">Ваши проекты</h2>
                     <button onclick="openCreateBoardModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-indigo-500 transition font-bold">+ Новая доска</button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="boards-grid"></div>
@@ -98,42 +144,52 @@
             <!-- АДМИН ПАНЕЛЬ -->
             <div id="view-admin" class="view-section max-w-6xl mx-auto">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-4xl font-black text-amber-400 drop-shadow-md mb-2">Панель администратора</h2>
+                    <h2 class="text-4xl font-black text-amber-500 dark:text-amber-400 drop-shadow-md mb-2 transition-colors">Панель администратора</h2>
                 </div>
-                <div class="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
-                    <div class="flex border-b border-slate-700 bg-slate-800/50">
-                        <div class="admin-tab active" onclick="switchAdminTab('stats', this)">📊 Статистика</div>
-                        <div class="admin-tab" onclick="switchAdminTab('users', this)">👥 Пользователи</div>
-                        <div class="admin-tab" onclick="switchAdminTab('requests', this)">🔑 Заявки на пароль</div>
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-xl overflow-hidden transition-colors">
+                    <div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 transition-colors">
+                        <div class="admin-tab active text-slate-600 dark:text-slate-300" onclick="switchAdminTab('stats', this)">📊 Статистика</div>
+                        <div class="admin-tab text-slate-600 dark:text-slate-300" onclick="switchAdminTab('users', this)">👥 Пользователи</div>
+                        <div class="admin-tab text-slate-600 dark:text-slate-300" onclick="switchAdminTab('requests', this)">🔑 Заявки на пароль</div>
                     </div>
                     <div class="p-8">
                         <div id="admin-tab-stats">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 text-center">
-                                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
-                                    <div class="text-sm text-slate-400 mb-1">Пользователей</div>
-                                    <div class="text-4xl font-black text-white" id="stat-users">0</div>
+                                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl transition-colors">
+                                    <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">Пользователей</div>
+                                    <div class="text-4xl font-black text-slate-900 dark:text-white transition-colors" id="stat-users">0</div>
                                 </div>
-                                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
-                                    <div class="text-sm text-slate-400 mb-1">Создано досок</div>
-                                    <div class="text-4xl font-black text-indigo-400" id="stat-boards">0</div>
+                                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl transition-colors">
+                                    <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">Создано досок</div>
+                                    <div class="text-4xl font-black text-indigo-500 dark:text-indigo-400 transition-colors" id="stat-boards">0</div>
                                 </div>
-                                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
-                                    <div class="text-sm text-slate-400 mb-1">Активных задач</div>
-                                    <div class="text-4xl font-black text-emerald-400" id="stat-tasks">0</div>
+                                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl transition-colors">
+                                    <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">Активных задач</div>
+                                    <div class="text-4xl font-black text-emerald-500 dark:text-emerald-400 transition-colors" id="stat-tasks">0</div>
                                 </div>
-                                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl">
-                                    <div class="text-sm text-slate-400 mb-1">Удаленных задач</div>
-                                    <div class="text-4xl font-black text-rose-400" id="stat-deleted-tasks">0</div>
+                                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl transition-colors">
+                                    <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">Удаленных задач</div>
+                                    <div class="text-4xl font-black text-rose-500 dark:text-rose-400 transition-colors" id="stat-deleted-tasks">0</div>
                                 </div>
                             </div>
-                            <div class="bg-white p-4 rounded-2xl w-full md:w-2/3 mx-auto">
-                                <canvas id="adminChart"></canvas>
+                            
+                            <!-- Разделенные графики -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
+                                    <h4 class="text-center font-bold mb-4 text-slate-600 dark:text-slate-300 transition-colors">Аудитория и Пространства</h4>
+                                    <canvas id="adminChartBar"></canvas>
+                                </div>
+                                <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
+                                    <h4 class="text-center font-bold mb-4 text-slate-600 dark:text-slate-300 transition-colors">Состояние задач</h4>
+                                    <div class="w-2/3 mx-auto"><canvas id="adminChartDoughnut"></canvas></div>
+                                </div>
                             </div>
                         </div>
+
                         <div id="admin-tab-users" class="hidden">
                             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                                <input type="text" id="admin-search-users" placeholder="Поиск по логину или email..." class="bg-slate-800 border border-slate-700 p-3 rounded-xl w-full md:w-1/2 outline-none focus:border-indigo-500" oninput="renderAdminUsersGrid()">
-                                <select id="admin-sort-users" class="bg-slate-800 border border-slate-700 p-3 rounded-xl w-full md:w-auto outline-none focus:border-indigo-500" onchange="renderAdminUsersGrid()">
+                                <input type="text" id="admin-search-users" placeholder="Поиск по логину или email..." class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white p-3 rounded-xl w-full md:w-1/2 outline-none focus:border-indigo-500 transition-colors" oninput="renderAdminUsersGrid()">
+                                <select id="admin-sort-users" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white p-3 rounded-xl w-full md:w-auto outline-none focus:border-indigo-500 transition-colors" onchange="renderAdminUsersGrid()">
                                     <option value="id_asc">Сортировка: ID (возрастание)</option>
                                     <option value="id_desc">Сортировка: ID (убывание)</option>
                                     <option value="name_asc">Сортировка: Имя (А-Я)</option>
@@ -142,16 +198,17 @@
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-left">
-                                    <thead><tr class="text-slate-400 text-sm border-b border-slate-700"><th class="py-3 px-4">ID</th><th class="py-3 px-4">Логин</th><th class="py-3 px-4">Email</th><th class="py-3 px-4">Роль</th><th class="py-3 px-4 text-right">Действия</th></tr></thead>
-                                    <tbody id="admin-users-table" class="divide-y divide-slate-800"></tbody>
+                                    <thead><tr class="text-slate-500 dark:text-slate-400 text-sm border-b border-slate-200 dark:border-slate-700"><th class="py-3 px-4">ID</th><th class="py-3 px-4">Логин</th><th class="py-3 px-4">Email</th><th class="py-3 px-4">Роль</th><th class="py-3 px-4 text-right">Действия</th></tr></thead>
+                                    <tbody id="admin-users-table" class="divide-y divide-slate-100 dark:divide-slate-700 transition-colors"></tbody>
                                 </table>
                             </div>
                         </div>
+
                         <div id="admin-tab-requests" class="hidden">
                             <div class="overflow-x-auto">
                                 <table class="w-full text-left">
-                                    <thead><tr class="text-slate-400 text-sm border-b border-slate-700"><th class="py-3 px-4">ID Заявки</th><th class="py-3 px-4">Пользователь</th><th class="py-3 px-4">Email</th><th class="py-3 px-4">Дата запроса</th><th class="py-3 px-4 text-right">Действия</th></tr></thead>
-                                    <tbody id="admin-requests-table" class="divide-y divide-slate-800"></tbody>
+                                    <thead><tr class="text-slate-500 dark:text-slate-400 text-sm border-b border-slate-200 dark:border-slate-700"><th class="py-3 px-4">ID Заявки</th><th class="py-3 px-4">Пользователь</th><th class="py-3 px-4">Email</th><th class="py-3 px-4">Дата запроса</th><th class="py-3 px-4 text-right">Действия</th></tr></thead>
+                                    <tbody id="admin-requests-table" class="divide-y divide-slate-100 dark:divide-slate-700 transition-colors"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -160,23 +217,23 @@
             </div>
 
             <!-- ПРОФИЛЬ -->
-            <div id="view-profile" class="view-section max-w-3xl mx-auto bg-slate-900/80 backdrop-blur border border-slate-700 p-8 rounded-3xl shadow-2xl">
-                <div class="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
-                    <h2 class="text-3xl font-black text-white">Профиль</h2>
-                    <button onclick="window.history.back()" class="text-slate-400 hover:text-white px-4 py-2 border border-slate-600 rounded-lg text-sm">← Назад</button>
+            <div id="view-profile" class="view-section max-w-3xl mx-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-8 rounded-3xl shadow-2xl transition-colors">
+                <div class="flex justify-between items-center mb-8 border-b border-slate-200 dark:border-slate-700 pb-4">
+                    <h2 class="text-3xl font-black text-slate-900 dark:text-white transition-colors">Профиль</h2>
+                    <button onclick="window.history.back()" class="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm transition-colors">← Назад</button>
                 </div>
                 <div class="flex flex-col md:flex-row gap-8">
                     <div class="flex flex-col items-center space-y-4 md:w-1/3">
                         <div id="profile-avatar-preview" class="avatar-circle w-32 h-32 text-5xl shadow-xl"></div>
                         <input type="file" id="avatar-upload" class="hidden" accept="image/*" onchange="uploadAvatar(event)">
-                        <button onclick="document.getElementById('avatar-upload').click()" class="text-sm bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg font-medium border border-slate-600 w-full">Загрузить фото</button>
+                        <button onclick="document.getElementById('avatar-upload').click()" class="text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-700 px-4 py-2 rounded-lg font-medium border border-slate-300 dark:border-slate-600 w-full text-slate-800 dark:text-white transition-colors">Загрузить фото</button>
                     </div>
                     <div class="flex-1 space-y-5">
-                        <input type="text" id="profile-name" disabled class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl text-slate-300 opacity-70">
-                        <input type="text" id="profile-email" disabled class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl text-slate-300 opacity-70">
-                        <textarea id="profile-desc" placeholder="О себе..." class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl h-24 outline-none focus:border-indigo-500"></textarea>
-                        <button onclick="toggleModal('change-password-modal')" class="text-sm bg-slate-800 text-slate-300 px-4 py-2 rounded-lg border border-slate-600 hover:text-white transition">Изменить пароль</button>
-                        <button onclick="saveProfile()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-500">Сохранить</button>
+                        <input type="text" id="profile-name" disabled class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl text-slate-500 dark:text-slate-400 cursor-not-allowed transition-colors">
+                        <input type="text" id="profile-email" disabled class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl text-slate-500 dark:text-slate-400 cursor-not-allowed transition-colors">
+                        <textarea id="profile-desc" placeholder="О себе..." class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 p-3 rounded-xl h-24 outline-none focus:border-indigo-500 text-slate-900 dark:text-white transition-colors"></textarea>
+                        <button onclick="toggleModal('change-password-modal')" class="text-sm bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:text-indigo-600 dark:hover:text-white transition">Изменить пароль</button>
+                        <button onclick="saveProfile()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-500 transition">Сохранить</button>
                     </div>
                 </div>
             </div>
@@ -186,14 +243,14 @@
                 <div class="flex justify-between items-end mb-8">
                     <div>
                         <div class="flex items-center gap-3 mb-2">
-                            <h2 id="board-title" class="text-4xl font-black text-white">Загрузка...</h2>
-                            <button onclick="openBoardSettings()" class="text-slate-400 hover:text-white p-2 bg-white/5 rounded-lg border border-white/10" title="Настройки">⚙️</button>
-                            <span id="user-role-badge" class="bg-indigo-500/20 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full border border-indigo-500/30">РОЛЬ</span>
+                            <h2 id="board-title" class="text-4xl font-black text-slate-900 dark:text-white transition-colors">Загрузка...</h2>
+                            <button onclick="openBoardSettings()" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-700 transition-colors" title="Настройки">⚙️</button>
+                            <span id="user-role-badge" class="bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200 dark:border-indigo-500/30 transition-colors">РОЛЬ</span>
                         </div>
                     </div>
                     <div class="flex gap-3">
-                        <button id="add-col-btn" onclick="openCreateColumnModal()" class="bg-slate-800/80 text-white border border-slate-700 px-5 py-2.5 rounded-xl shadow hover:bg-slate-700 font-bold">+ Колонка</button>
-                        <button id="add-task-btn" onclick="openCreateTaskModal()" class="bg-emerald-500 text-white px-6 py-2.5 rounded-xl shadow-lg hover:bg-emerald-400 font-bold">+ Задача</button>
+                        <button id="add-col-btn" onclick="openCreateColumnModal()" class="bg-white dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 px-5 py-2.5 rounded-xl shadow hover:bg-slate-50 dark:hover:bg-slate-700 font-bold transition-colors">+ Колонка</button>
+                        <button id="add-task-btn" onclick="openCreateTaskModal()" class="bg-emerald-500 text-white px-6 py-2.5 rounded-xl shadow-lg hover:bg-emerald-600 font-bold transition-colors">+ Задача</button>
                     </div>
                 </div>
                 <div class="board-container" id="board-columns"></div>
@@ -203,159 +260,171 @@
 
     <!-- МОДАЛЬНЫЕ ОКНА -->
     <div id="change-password-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-2xl font-black mb-6">Смена пароля</h3>
             <div class="space-y-4">
-                <input type="password" id="cp-old" placeholder="Текущий пароль" class="w-full border p-3 rounded-xl outline-none">
-                <input type="password" id="cp-new" placeholder="Новый пароль" class="w-full border p-3 rounded-xl outline-none">
-                <button onclick="changePassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Изменить</button>
+                <input type="password" id="cp-old" placeholder="Текущий пароль" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <input type="password" id="cp-new" placeholder="Новый пароль" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <button onclick="changePassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold transition-colors">Изменить</button>
             </div>
         </div>
     </div>
 
     <div id="forgot-password-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-2xl font-black mb-2">Сброс пароля</h3>
-            <p class="text-sm text-slate-500 mb-6">Введите Email, на который зарегистрирован аккаунт.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 transition-colors">Введите Email, на который зарегистрирован аккаунт.</p>
             <div class="space-y-4">
-                <input type="email" id="fp-email" placeholder="user@email.com" class="w-full border p-3 rounded-xl outline-none">
-                <button onclick="forgotPassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить заявку админу</button>
+                <input type="email" id="fp-email" placeholder="user@email.com" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <button onclick="forgotPassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold transition-colors hover:bg-indigo-700">Отправить заявку админу</button>
             </div>
         </div>
     </div>
 
     <div id="admin-resolve-req-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-xl font-black mb-2">Задать новый пароль</h3>
-            <p class="text-xs text-slate-500 mb-4">Свяжитесь с пользователем и передайте ему этот пароль после сохранения.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 transition-colors">Свяжитесь с пользователем и передайте ему этот пароль после сохранения.</p>
             <input type="hidden" id="admin-req-id">
-            <input type="text" id="admin-req-pwd" class="w-full border p-3 rounded-xl outline-none mb-4 font-mono">
-            <button onclick="adminResolveRequestSubmit()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600">Сохранить и закрыть заявку</button>
+            <input type="text" id="admin-req-pwd" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none mb-4 font-mono transition-colors focus:border-indigo-500">
+            <button onclick="adminResolveRequestSubmit()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition-colors">Сохранить и закрыть заявку</button>
         </div>
     </div>
 
     <div id="admin-reset-pwd-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-xl font-black mb-6">Принудительно сменить пароль</h3>
             <input type="hidden" id="admin-reset-uid">
-            <input type="text" id="admin-new-pwd" placeholder="Новый пароль" class="w-full border p-3 rounded-xl outline-none mb-4 font-mono">
-            <button onclick="adminResetPasswordSubmit()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-600">Сохранить</button>
+            <input type="text" id="admin-new-pwd" placeholder="Новый пароль" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none mb-4 font-mono transition-colors focus:border-indigo-500">
+            <button onclick="adminResetPasswordSubmit()" class="w-full bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-600 transition-colors">Сохранить</button>
         </div>
     </div>
 
     <div id="board-settings-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[600px] shadow-2xl relative text-slate-900 max-h-[80vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[600px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white max-h-[80vh] overflow-y-auto transition-colors">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-200 dark:border-slate-700 pb-4 transition-colors">
                 <h3 class="text-2xl font-black">Настройки доски</h3>
-                <button onclick="toggleModal('board-settings-modal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                <button onclick="toggleModal('board-settings-modal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl font-bold transition-colors">&times;</button>
             </div>
             <div id="board-admin-controls" class="hidden mb-8 space-y-4">
                 <div class="flex gap-2">
-                    <input type="text" id="settings-board-title" class="flex-1 border border-slate-200 p-3 rounded-xl font-bold outline-none">
-                    <button onclick="renameBoard()" class="bg-indigo-600 text-white px-4 rounded-xl font-bold hover:bg-indigo-500">Сохранить</button>
+                    <input type="text" id="settings-board-title" class="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl font-bold outline-none focus:border-indigo-500 transition-colors">
+                    <button onclick="renameBoard()" class="bg-indigo-600 text-white px-4 rounded-xl font-bold hover:bg-indigo-500 transition-colors">Сохранить</button>
                 </div>
             </div>
             <div>
                 <div class="flex justify-between items-center mb-4">
-                    <label class="block text-xs font-bold text-slate-500 uppercase">Участники</label>
-                    <button id="settings-invite-btn" onclick="toggleModal('board-settings-modal'); toggleModal('invite-modal')" class="text-indigo-600 text-sm font-bold hover:underline hidden">+ Пригласить</button>
+                    <label class="block text-xs font-bold text-slate-500 uppercase transition-colors">Участники</label>
+                    <button id="settings-invite-btn" onclick="toggleModal('board-settings-modal'); toggleModal('invite-modal')" class="text-indigo-600 text-sm font-bold hover:underline hidden transition-colors">+ Пригласить</button>
                 </div>
                 <div id="settings-members-list" class="space-y-3"></div>
             </div>
-            <div id="board-danger-zone" class="hidden mt-8 pt-6 border-t border-red-100">
+            <div id="board-danger-zone" class="hidden mt-8 pt-6 border-t border-red-200 dark:border-red-900/30 transition-colors">
                 <h4 class="text-red-600 font-bold mb-2">Опасная зона</h4>
-                <button onclick="deleteBoard()" class="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold hover:bg-red-100 transition">Удалить доску</button>
+                <button onclick="deleteBoard()" class="w-full bg-red-50 dark:bg-red-500/10 text-red-600 border border-red-200 dark:border-red-500/20 py-3 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors">Удалить доску</button>
             </div>
         </div>
     </div>
 
-    <!-- Новое модальное окно авторизации (Слайдер) -->
+    <!-- Модальное окно авторизации (Слайдер) -->
     <div id="auth-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-700 relative text-white">
-            <div class="flex mb-6 border-b border-slate-700">
-                <div class="auth-tab active flex-1 text-center" onclick="switchAuthTab('login')">Вход</div>
-                <div class="auth-tab flex-1 text-center" onclick="switchAuthTab('register')">Регистрация</div>
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
+            <div class="flex mb-6 border-b border-slate-200 dark:border-slate-700 transition-colors">
+                <div class="auth-tab active flex-1 text-center text-slate-900 dark:text-white font-bold" id="tab-login" onclick="switchAuthTab('login')">Вход</div>
+                <div class="auth-tab flex-1 text-center text-slate-500 dark:text-slate-400" id="tab-register" onclick="switchAuthTab('register')">Регистрация</div>
             </div>
             
-            <!-- Форма Входа -->
             <div id="auth-form-login" class="auth-form active space-y-4">
-                <input type="text" id="login-identifier" placeholder="Логин или Email" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <input type="password" id="login-password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <button onclick="submitAuth('login')" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500 transition">Войти</button>
+                <input type="text" id="login-identifier" placeholder="Логин или Email" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <input type="password" id="login-password" placeholder="Пароль" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <button onclick="submitAuth('login')" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">Войти</button>
                 <div class="text-center pt-2">
-                    <button onclick="toggleModal('auth-modal'); toggleModal('forgot-password-modal')" class="text-xs text-slate-400 hover:text-white underline">Забыли пароль?</button>
+                    <button onclick="toggleModal('auth-modal'); toggleModal('forgot-password-modal')" class="text-xs text-indigo-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-white underline transition-colors">Забыли пароль?</button>
                 </div>
             </div>
 
-            <!-- Форма Регистрации -->
             <div id="auth-form-register" class="auth-form space-y-4">
-                <input type="text" id="reg-username" placeholder="Логин" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <input type="email" id="reg-email" placeholder="Email" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <input type="password" id="reg-password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500">
-                <button onclick="submitAuth('register')" class="w-full bg-slate-800 text-white border border-slate-600 py-3 rounded-xl font-bold hover:bg-slate-700 transition">Зарегистрироваться</button>
+                <input type="text" id="reg-username" placeholder="Логин" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <input type="email" id="reg-email" placeholder="Email" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <input type="password" id="reg-password" placeholder="Пароль" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none focus:border-indigo-500 transition-colors">
+                <button onclick="submitAuth('register')" class="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-600 py-3 rounded-xl font-bold transition-colors">Зарегистрироваться</button>
             </div>
         </div>
     </div>
 
     <div id="create-board-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[450px] shadow-2xl relative text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[450px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-2xl font-black mb-6">Новая доска</h3>
             <div class="space-y-4">
-                <input type="text" id="new-board-title" placeholder="Название проекта" class="w-full border p-3 rounded-xl outline-none font-bold focus:border-indigo-500">
-                <button onclick="createBoard()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold mt-2">Создать</button>
+                <input type="text" id="new-board-title" placeholder="Название проекта" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none font-bold focus:border-indigo-500 transition-colors">
+                <button onclick="createBoard()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold mt-2 hover:bg-indigo-700 transition-colors">Создать</button>
             </div>
         </div>
     </div>
 
+    <!-- Обновленная модалка ЗАДАЧИ -->
     <div id="task-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[600px] shadow-2xl relative text-slate-900 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[600px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white max-h-[90vh] overflow-y-auto transition-colors">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4 transition-colors">
                 <h3 class="text-2xl font-black" id="task-modal-title">Задача</h3>
-                <button onclick="toggleModal('task-modal')" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+                <button onclick="toggleModal('task-modal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-xl transition-colors">&times;</button>
             </div>
             <input type="hidden" id="task-id">
             <div class="space-y-5">
-                <input type="text" id="task-title" placeholder="Название" class="w-full border p-3 rounded-xl font-bold outline-none focus:border-indigo-500">
-                <textarea id="task-desc" placeholder="Описание" class="w-full border p-3 rounded-xl h-24 outline-none focus:border-indigo-500"></textarea>
+                <input type="text" id="task-title" placeholder="Название" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl font-bold outline-none focus:border-indigo-500 transition-colors">
+                <textarea id="task-desc" placeholder="Описание" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl h-24 outline-none focus:border-indigo-500 transition-colors"></textarea>
                 
                 <div class="flex gap-4">
-                    <select id="task-priority" class="w-full border p-3 rounded-xl bg-white outline-none">
-                        <option value="LOW">Низкий</option><option value="MEDIUM" selected>Средний</option><option value="HIGH">Высокий</option>
+                    <select id="task-priority" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none transition-colors">
+                        <option value="LOW">Низкий приоритет</option><option value="MEDIUM" selected>Средний приоритет</option><option value="HIGH">Высокий приоритет</option>
                     </select>
-                    <select id="task-assignee" class="w-full border p-3 rounded-xl bg-white outline-none">
+                    <select id="task-assignee" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none transition-colors">
                         <option value="0">Без исполнителя</option>
                     </select>
                 </div>
-                <div class="pt-4 border-t border-slate-100">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Вложения</label>
+                
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-800 transition-colors">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2 transition-colors">Вложения</label>
                     <div id="task-attachments-list" class="flex flex-wrap gap-2 mb-3"></div>
+                    <p id="task-attachment-hint" class="text-xs text-slate-500 italic mt-2 transition-colors">Возможность прикреплять файлы появится после сохранения задачи.</p>
                     <input type="file" id="file-upload" class="hidden" onchange="uploadTaskFile(event)">
-                    <button id="upload-file-btn" onclick="document.getElementById('file-upload').click()" class="text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition px-4 py-2 rounded-lg font-bold">📎 Прикрепить файл</button>
+                    <button id="upload-file-btn" onclick="document.getElementById('file-upload').click()" class="hidden text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors px-4 py-2 rounded-lg font-bold border border-slate-300 dark:border-slate-600">📎 Прикрепить файл</button>
                 </div>
-                <div class="flex gap-3 pt-4 border-t border-slate-100" id="task-modal-buttons"></div>
+                
+                <!-- Секция комментариев -->
+                <div id="task-comments-section" class="pt-4 border-t border-slate-100 dark:border-slate-800 hidden transition-colors">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-4 transition-colors">Комментарии</label>
+                    <div id="task-comments-list" class="space-y-4 mb-4 max-h-40 overflow-y-auto pr-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-comment-text" placeholder="Написать комментарий..." class="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-2 rounded-xl outline-none focus:border-indigo-500 text-sm transition-colors">
+                        <button onclick="saveComment()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 text-sm transition-colors">Отправить</button>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 transition-colors" id="task-modal-buttons"></div>
             </div>
         </div>
     </div>
 
     <div id="column-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl relative text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-xl font-black mb-6" id="col-modal-title">Колонка</h3>
             <input type="hidden" id="col-id">
-            <input type="text" id="col-title" placeholder="Название" class="w-full border p-3 rounded-xl font-bold outline-none mb-4 focus:border-indigo-500">
+            <input type="text" id="col-title" placeholder="Название" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl font-bold outline-none mb-4 focus:border-indigo-500 transition-colors">
             <div class="flex gap-3" id="col-modal-buttons"></div>
         </div>
     </div>
 
     <div id="invite-modal" class="modal" onclick="closeModalOnOutside(event, this)">
-        <div class="bg-white p-8 rounded-3xl w-[400px] shadow-2xl text-slate-900">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <h3 class="text-xl font-black mb-6">Пригласить</h3>
-            <input type="email" id="invite-email" placeholder="user@email.com" class="w-full border p-3 rounded-xl outline-none mb-4 focus:border-indigo-500">
-            <select id="invite-role" class="w-full border p-3 rounded-xl bg-white mb-4 outline-none">
+            <input type="email" id="invite-email" placeholder="user@email.com" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none mb-4 focus:border-indigo-500 transition-colors">
+            <select id="invite-role" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl mb-4 outline-none transition-colors">
                 <option value="MEMBER">Участник</option><option value="ADMIN">Админ</option><option value="VIEWER">Наблюдатель</option>
             </select>
             <div class="flex gap-2">
-                <button onclick="sendInvite()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Отправить</button>
-                <button onclick="toggleModal('invite-modal'); toggleModal('board-settings-modal')" class="bg-slate-100 px-4 rounded-xl font-bold">Отмена</button>
+                <button onclick="sendInvite()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">Отправить</button>
+                <button onclick="toggleModal('invite-modal'); toggleModal('board-settings-modal')" class="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white px-4 rounded-xl font-bold transition-colors border border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700">Отмена</button>
             </div>
         </div>
     </div>
@@ -366,18 +435,24 @@
         let currentBoard = null;
         let currentRole = null; 
         let globalUsersCache = {}; 
-        let adminChartInstance = null;
+        let adminChartBar = null;
+        let adminChartDoughnut = null;
         let adminUsersData = [];
 
-        // Отлов глобальных ошибок JS
-        window.addEventListener('error', (e) => console.error("Global UI Error:", e.error));
+        // Функция переключения тем
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            // Если находимся на вкладке статистики админа, перерисовываем графики для новых цветов текста
+            if (currentUser && currentUser.is_superuser && window.location.hash === '#/admin') renderAdminStats();
+        }
 
         window.onload = () => { 
             if (currentUser) { 
                 updateNavUI(); 
-                handleRoute(); // Сразу переходим на нужную страницу
+                handleRoute(); 
             } else { 
-                navigate('/welcome'); // Гарантированно показываем экран входа
+                navigate('/welcome'); 
             }
         };
         
@@ -398,13 +473,18 @@
             document.getElementById('board-nav-tools').classList.add('hidden');
 
             if (!currentUser) { 
+                document.getElementById('user-profile').classList.add('hidden');
+                document.getElementById('login-btn').classList.remove('hidden');
                 document.getElementById('view-welcome').classList.add('active'); 
                 return; 
             }
+
             if (hash === '#/welcome') { 
                 navigate('/dashboard'); 
                 return; 
             }
+
+            updateNavUI();
 
             if (hash === '#/dashboard') { 
                 document.getElementById('view-dashboard').classList.add('active'); 
@@ -454,9 +534,15 @@
         }
 
         function switchAuthTab(tab) {
-            document.querySelectorAll('.auth-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.auth-tab').forEach(el => {
+                el.classList.remove('active', 'text-slate-900', 'dark:text-white');
+                el.classList.add('text-slate-500', 'dark:text-slate-400');
+            });
             document.querySelectorAll('.auth-form').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
+            
+            const activeTab = document.getElementById(`tab-${tab}`);
+            activeTab.classList.add('active', 'text-slate-900', 'dark:text-white');
+            activeTab.classList.remove('text-slate-500', 'dark:text-slate-400');
             document.getElementById(`auth-form-${tab}`).classList.add('active');
         }
 
@@ -499,14 +585,23 @@
         function logout() { 
             localStorage.removeItem('kanban_user'); 
             currentUser = null;
-            navigate('/welcome'); 
-            window.location.reload(); 
+            window.location.hash = '#/welcome';
+            handleRoute();
         }
 
         async function forgotPassword() {
             const email = document.getElementById('fp-email').value;
-            const res = await fetch('/api/v1/auth/forgot-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email})});
-            if(res.ok) { alert('Заявка отправлена администратору!'); toggleModal('forgot-password-modal'); } else { alert((await res.json()).detail); }
+            const res = await fetch('/api/v1/auth/forgot-password', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({email})
+            });
+            if(res.ok) { 
+                alert('Заявка отправлена администратору!'); 
+                toggleModal('forgot-password-modal'); 
+            } else { 
+                alert((await res.json()).detail); 
+            }
         }
 
         // --- ПРОФИЛЬ ---
@@ -519,22 +614,53 @@
 
         async function saveProfile() {
             const desc = document.getElementById('profile-desc').value;
-            const res = await fetch(`/api/v1/users/me?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({description: desc}) });
-            if(res.ok) { currentUser = await res.json(); localStorage.setItem('kanban_user', JSON.stringify(currentUser)); alert('Профиль сохранен!'); }
+            const res = await fetch(`/api/v1/users/me?user_id=${currentUser.id}`, { 
+                method: 'PUT', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({description: desc}) 
+            });
+            if(res.ok) { 
+                currentUser = await res.json(); 
+                localStorage.setItem('kanban_user', JSON.stringify(currentUser)); 
+                alert('Профиль сохранен!'); 
+            }
         }
 
         async function uploadAvatar(event) {
-            const file = event.target.files[0]; if(!file) return;
-            const formData = new FormData(); formData.append('file', file);
-            const res = await fetch(`/api/v1/users/me/avatar?user_id=${currentUser.id}`, { method: 'POST', body: formData });
-            if(res.ok) { currentUser = await res.json(); localStorage.setItem('kanban_user', JSON.stringify(currentUser)); loadProfile(); updateNavUI(); }
+            const file = event.target.files[0]; 
+            if(!file) return;
+            const formData = new FormData(); 
+            formData.append('file', file);
+            
+            const res = await fetch(`/api/v1/users/me/avatar?user_id=${currentUser.id}`, { 
+                method: 'POST', 
+                body: formData 
+            });
+            
+            if(res.ok) { 
+                currentUser = await res.json(); 
+                localStorage.setItem('kanban_user', JSON.stringify(currentUser)); 
+                loadProfile(); 
+                updateNavUI(); 
+            }
         }
 
         async function changePassword() {
-            const oldP = document.getElementById('cp-old').value, newP = document.getElementById('cp-new').value;
+            const oldP = document.getElementById('cp-old').value;
+            const newP = document.getElementById('cp-new').value;
             if(!oldP || !newP) return alert('Заполните поля');
-            const res = await fetch(`/api/v1/users/me/password?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({old_password:oldP, new_password:newP}) });
-            if(res.ok) { alert('Пароль изменен!'); toggleModal('change-password-modal'); } else alert((await res.json()).detail);
+            
+            const res = await fetch(`/api/v1/users/me/password?user_id=${currentUser.id}`, { 
+                method: 'PUT', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({old_password:oldP, new_password:newP}) 
+            });
+            if(res.ok) { 
+                alert('Пароль изменен!'); 
+                toggleModal('change-password-modal'); 
+            } else {
+                alert((await res.json()).detail);
+            }
         }
 
         // --- АДМИН ПАНЕЛЬ ---
@@ -564,15 +690,49 @@
                 document.getElementById('stat-deleted-tasks').innerText = stats.total_deleted_tasks;
 
                 if (typeof Chart !== 'undefined') {
-                    const ctx = document.getElementById('adminChart').getContext('2d');
-                    if(adminChartInstance) adminChartInstance.destroy();
-                    adminChartInstance = new Chart(ctx, {
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const textColor = isDark ? '#f8fafc' : '#0f172a';
+                    Chart.defaults.color = textColor;
+
+                    const ctxBar = document.getElementById('adminChartBar').getContext('2d');
+                    if(adminChartBar) adminChartBar.destroy();
+                    adminChartBar = new Chart(ctxBar, {
                         type: 'bar',
                         data: {
-                            labels: ['Пользователи', 'Доски', 'Активные задачи', 'Завершенные задачи'],
-                            datasets: [{ label: 'Количество', data: [stats.total_users, stats.total_boards, stats.total_tasks, stats.total_deleted_tasks], backgroundColor: ['#818cf8', '#34d399', '#f472b6', '#fb7185'] }]
+                            labels: ['Пользователи', 'Доски'],
+                            datasets: [{ 
+                                label: 'Количество', 
+                                data: [stats.total_users, stats.total_boards], 
+                                backgroundColor: ['#818cf8', '#34d399'] 
+                            }]
                         },
-                        options: { responsive: true, plugins: { legend: { display: false } } }
+                        options: { 
+                            responsive: true, 
+                            plugins: { 
+                                legend: { display: false } 
+                            } 
+                        }
+                    });
+
+                    const ctxDough = document.getElementById('adminChartDoughnut').getContext('2d');
+                    if(adminChartDoughnut) adminChartDoughnut.destroy();
+                    adminChartDoughnut = new Chart(ctxDough, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Активные задачи', 'Удаленные задачи'],
+                            datasets: [{ 
+                                data: [stats.total_tasks, stats.total_deleted_tasks], 
+                                backgroundColor: ['#10b981', '#f43f5e'],
+                                borderWidth: isDark ? 2 : 0,
+                                borderColor: isDark ? '#1e293b' : '#ffffff'
+                            }]
+                        },
+                        options: { 
+                            responsive: true, 
+                            plugins: { 
+                                legend: { position: 'bottom' } 
+                            } 
+                        }
                     });
                 }
             } catch (err) { console.error("Ошибка загрузки статистики:", err); }
@@ -599,17 +759,19 @@
                 return 0;
             });
 
-            const tbody = document.getElementById('admin-users-table'); tbody.innerHTML = '';
+            const tbody = document.getElementById('admin-users-table'); 
+            tbody.innerHTML = '';
+            
             filtered.forEach(u => {
-                const roleBadge = u.is_superuser ? '<span class="bg-amber-500/20 text-amber-500 px-2 py-1 rounded text-xs">Админ</span>' : '<span class="bg-slate-700 px-2 py-1 rounded text-xs text-slate-300">Юзер</span>';
+                const roleBadge = u.is_superuser ? '<span class="bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-500 px-2 py-1 rounded text-xs">Админ</span>' : '<span class="bg-slate-200 text-slate-700 dark:bg-slate-700 px-2 py-1 rounded text-xs dark:text-slate-300">Юзер</span>';
                 tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/50 transition">
+                    <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
                         <td class="py-3 px-4 font-mono text-xs text-slate-500">#${u.id}</td>
-                        <td class="py-3 px-4 font-bold text-white">${u.username}</td>
-                        <td class="py-3 px-4 text-slate-400 text-sm">${u.email}</td>
+                        <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${u.username}</td>
+                        <td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${u.email}</td>
                         <td class="py-3 px-4">${roleBadge}</td>
                         <td class="py-3 px-4 text-right">
-                            <button onclick="adminOpenResetPwd(${u.id})" class="text-blue-400 hover:underline text-sm mr-3">Пароль</button>
+                            <button onclick="adminOpenResetPwd(${u.id})" class="text-blue-500 dark:text-blue-400 hover:underline text-sm mr-3">Пароль</button>
                             ${u.id !== currentUser.id ? `<button onclick="adminDeleteUser(${u.id})" class="text-red-500 hover:underline text-sm">Удалить</button>` : ''}
                         </td>
                     </tr>`;
@@ -624,13 +786,13 @@
             requests.forEach(r => {
                 const date = new Date(r.created_at).toLocaleString('ru-RU');
                 tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/50 transition">
+                    <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
                         <td class="py-3 px-4 font-mono text-xs text-slate-500">REQ-${r.id}</td>
-                        <td class="py-3 px-4 font-bold text-white">${r.user.username}</td>
-                        <td class="py-3 px-4 text-slate-400 text-sm">${r.user.email}</td>
-                        <td class="py-3 px-4 text-slate-400 text-sm">${date}</td>
+                        <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${r.user.username}</td>
+                        <td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${r.user.email}</td>
+                        <td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${date}</td>
                         <td class="py-3 px-4 text-right">
-                            <button onclick="adminOpenResolveRequest(${r.id})" class="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded hover:bg-emerald-500/30 text-sm font-bold">Установить пароль</button>
+                            <button onclick="adminOpenResolveRequest(${r.id})" class="bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 px-3 py-1 rounded dark:hover:bg-emerald-500/30 text-sm font-bold transition">Установить пароль</button>
                         </td>
                     </tr>`;
             });
@@ -683,20 +845,41 @@
         async function loadDashboard() {
             try {
                 const res = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
-                if (!res.ok) throw new Error("HTTP " + res.status);
+                if (!res.ok) {
+                    if (res.status === 401) logout();
+                    throw new Error("HTTP " + res.status);
+                }
                 boards = await res.json();
                 const grid = document.getElementById('boards-grid'); grid.innerHTML = '';
                 
                 if (!Array.isArray(boards) || boards.length === 0) { 
-                    grid.innerHTML = '<div class="col-span-full text-slate-400 py-10 text-center">У вас пока нет досок. Создайте первую!</div>'; return; 
+                    grid.innerHTML = '<div class="col-span-full text-slate-400 py-10 text-center">У вас пока нет досок. Создайте первую!</div>'; 
+                    return; 
                 }
                 
                 boards.forEach(b => {
                     const role = (b.member_associations.find(m => m.user.id === currentUser.id) || {}).role || 'VIEWER';
-                    const rc = {'OWNER':'bg-rose-500/20 text-rose-300 border-rose-500/30','ADMIN':'bg-amber-500/20 text-amber-300 border-amber-500/30','MEMBER':'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}[role] || 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-                    grid.innerHTML += `<div class="board-card flex flex-col justify-between h-40" onclick="navigate('/board/${b.id}')"><div><div class="flex justify-between mb-2"><h3 class="text-xl font-bold truncate">${b.title}</h3><span class="text-[10px] px-2 rounded border uppercase ${rc}">${role}</span></div></div><div class="text-xs text-slate-500 mt-4">Колонок: ${b.columns.length} | Участников: ${b.member_associations.length}</div></div>`;
+                    const rc = {
+                        'OWNER':'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30',
+                        'ADMIN':'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30',
+                        'MEMBER':'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
+                    }[role] || 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30';
+                    
+                    grid.innerHTML += `
+                        <div class="board-card bg-white/80 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-40" onclick="navigate('/board/${b.id}')">
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <h3 class="text-xl font-bold text-slate-900 dark:text-white truncate">${b.title}</h3>
+                                    <span class="text-[10px] px-2 rounded border uppercase ${rc}">${role}</span>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-4">Колонок: ${b.columns.length} | Участников: ${b.member_associations.length}</div>
+                        </div>`;
                 });
-            } catch (err) { console.error(err); document.getElementById('boards-grid').innerHTML = '<div class="col-span-full text-red-400 py-10 text-center">Ошибка загрузки досок.</div>'; }
+            } catch (err) { 
+                console.error(err); 
+                document.getElementById('boards-grid').innerHTML = '<div class="col-span-full text-red-400 py-10 text-center">Ошибка загрузки досок. Возможно, истекла сессия авторизации.</div>'; 
+            }
         }
         
         function openCreateBoardModal() { document.getElementById('new-board-title').value = ''; toggleModal('create-board-modal'); }
@@ -710,14 +893,20 @@
         async function loadBoardView(id) {
             try {
                 const res = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
-                if (!res.ok) throw new Error("HTTP " + res.status);
+                if (!res.ok) {
+                    if (res.status === 401) logout();
+                    throw new Error();
+                }
                 boards = await res.json(); currentBoard = boards.find(b => b.id === id);
                 if (!currentBoard) { navigate('/dashboard'); return; }
                 
                 currentRole = (currentBoard.member_associations.find(m => m.user.id === currentUser.id) || {}).role || 'VIEWER';
                 currentBoard.member_associations.forEach(m => globalUsersCache[m.user.id] = m.user);
                 renderBoard();
-            } catch (err) { console.error(err); document.getElementById('board-columns').innerHTML = '<div class="text-red-400">Ошибка при загрузке доски.</div>'; }
+            } catch (err) { 
+                console.error(err);
+                document.getElementById('board-columns').innerHTML = '<div class="text-red-400">Ошибка при загрузке доски. Возможно, истекла сессия авторизации.</div>'; 
+            }
         }
 
         function openBoardSettings() {
@@ -730,11 +919,19 @@
             const list = document.getElementById('settings-members-list'); list.innerHTML = '';
             currentBoard.member_associations.forEach(m => {
                 const isMe = m.user.id === currentUser.id;
-                let cHtml = `<span class="text-xs bg-slate-200 px-2 py-1 rounded">${m.role}</span>`;
+                let cHtml = `<span class="text-xs bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">${m.role}</span>`;
                 if(isAd && !isMe) {
-                    cHtml = `<div class="flex gap-2"><select onchange="changeRole(${m.user.id}, this.value)" class="text-xs border p-1 rounded bg-white"><option ${m.role==='ADMIN'?'selected':''}>ADMIN</option><option ${m.role==='MEMBER'?'selected':''}>MEMBER</option><option ${m.role==='VIEWER'?'selected':''}>VIEWER</option></select><button onclick="kickUser(${m.user.id})" class="text-red-500 font-bold hover:text-red-700">✖</button></div>`;
+                    cHtml = `
+                    <div class="flex gap-2">
+                        <select onchange="changeRole(${m.user.id}, this.value)" class="text-xs border border-slate-300 dark:border-slate-600 p-1 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                            <option ${m.role==='ADMIN'?'selected':''}>ADMIN</option>
+                            <option ${m.role==='MEMBER'?'selected':''}>MEMBER</option>
+                            <option ${m.role==='VIEWER'?'selected':''}>VIEWER</option>
+                        </select>
+                        <button onclick="kickUser(${m.user.id})" class="text-red-500 font-bold hover:text-red-700">✖</button>
+                    </div>`;
                 }
-                list.innerHTML += `<div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100"><div class="flex items-center gap-3"><div class="avatar-circle w-8 h-8 text-xs" onmouseenter="showTooltip(event,${m.user.id},'${m.role}')" onmouseleave="hideTooltip()" style="${m.user.avatar_url ? `background-image:url(${m.user.avatar_url});color:transparent` : ''}">${m.user.username.charAt(0)}</div><div><div class="text-sm font-bold">${m.user.username}</div>${isAd ? `<div class="text-[10px] text-slate-500">${m.user.email}</div>` : ''}</div></div>${cHtml}</div>`;
+                list.innerHTML += `<div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700"><div class="flex items-center gap-3"><div class="avatar-circle w-8 h-8 text-xs" onmouseenter="showTooltip(event,${m.user.id},'${m.role}')" onmouseleave="hideTooltip()" style="${m.user.avatar_url ? `background-image:url(${m.user.avatar_url});color:transparent` : ''}">${m.user.username.charAt(0)}</div><div><div class="text-sm font-bold text-slate-900 dark:text-white">${m.user.username}</div>${isAd ? `<div class="text-[10px] text-slate-500">${m.user.email}</div>` : ''}</div></div>${cHtml}</div>`;
             });
             toggleModal('board-settings-modal');
         }
@@ -757,19 +954,19 @@
             const cont = document.getElementById('board-columns'); cont.innerHTML = '';
             
             (currentBoard.columns || []).sort((a,b) => a.order - b.order).forEach(col => {
-                const cDiv = document.createElement('div'); cDiv.className = 'kanban-column p-4';
+                const cDiv = document.createElement('div'); cDiv.className = 'kanban-column p-4 bg-white/50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 backdrop-blur-sm';
                 if(canTask) { cDiv.setAttribute('ondragover','allowDrop(event)'); cDiv.setAttribute('ondrop',`drop(event,${col.id})`); }
-                cDiv.innerHTML = `<div class="flex justify-between items-center mb-5"><span class="text-xs font-black text-white uppercase tracking-widest cursor-pointer" onclick="openCreateColumnModal(${col.id},'${col.title}')">${col.title}</span><span class="bg-slate-800 text-xs px-2 rounded-full">${col.tasks.length}</span></div><div id="col-${col.id}" class="space-y-3 min-h-[500px]"></div>`;
+                cDiv.innerHTML = `<div class="flex justify-between items-center mb-5"><span class="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest cursor-pointer" onclick="openCreateColumnModal(${col.id},'${col.title}')">${col.title}</span><span class="bg-slate-200 text-slate-700 dark:bg-slate-700 text-xs px-2 rounded-full dark:text-slate-300">${col.tasks.length}</span></div><div id="col-${col.id}" class="space-y-3 min-h-[500px]"></div>`;
                 cont.appendChild(cDiv);
                 col.tasks.forEach(t => renderTask(t, col.id, canTask));
             });
         }
 
         function renderTask(t, colId, canTask) {
-            const card = document.createElement('div'); card.className = 'task-card';
+            const card = document.createElement('div'); card.className = 'task-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm';
             if(canTask) { card.draggable = true; card.onclick = (e) => { if(!e.target.closest('.avatar-circle')) openEditTaskModal(t); }; card.ondragstart = (e) => e.dataTransfer.setData('text', t.id); }
             const asHtml = t.assignee ? `<div class="avatar-circle w-6 h-6 text-[10px]" onmouseenter="showTooltip(event,${t.assignee.id},'Участник')" onmouseleave="hideTooltip()" style="${t.assignee.avatar_url ? `background-image:url(${t.assignee.avatar_url});color:transparent` : ''}">${t.assignee.username.charAt(0)}</div>` : '';
-            card.innerHTML = `<div class="flex justify-between items-start mb-3"><span class="priority-badge priority-${(t.priority || 'MEDIUM').toLowerCase()}">${t.priority}</span>${asHtml}</div><div class="font-bold leading-tight">${t.title}</div>${t.description ? `<div class="text-xs text-slate-500 mt-2 line-clamp-2">${t.description}</div>` : ''}${t.attachments && t.attachments.length ? `<div class="text-[10px] text-blue-500 mt-2 font-bold">📎 Вложений: ${t.attachments.length}</div>` : ''}`;
+            card.innerHTML = `<div class="flex justify-between items-start mb-3"><span class="priority-badge priority-${(t.priority || 'MEDIUM').toLowerCase()}">${t.priority}</span>${asHtml}</div><div class="font-bold leading-tight text-slate-900 dark:text-white">${t.title}</div>${t.description ? `<div class="text-xs text-slate-500 mt-2 line-clamp-2">${t.description}</div>` : ''}${t.attachments && t.attachments.length ? `<div class="text-[10px] text-blue-500 mt-2 font-bold">📎 Вложений: ${t.attachments.length}</div>` : ''}${(t.comments && t.comments.length) ? `<div class="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 font-bold">💬 Комментариев: ${t.comments.length}</div>` : ''}`;
             document.getElementById(`col-${colId}`).appendChild(card);
         }
 
@@ -783,7 +980,7 @@
 
         function openCreateColumnModal(id, title) { 
             if(id) { 
-                document.getElementById('col-id').value = id; document.getElementById('col-title').value = title; document.getElementById('col-modal-buttons').innerHTML = `<button onclick="updateCol()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button><button onclick="deleteCol()" class="bg-red-50 text-red-600 px-4 rounded-xl font-bold">Удалить</button>`; 
+                document.getElementById('col-id').value = id; document.getElementById('col-title').value = title; document.getElementById('col-modal-buttons').innerHTML = `<button onclick="updateCol()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button><button onclick="deleteCol()" class="bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20 transition px-4 rounded-xl font-bold">Удалить</button>`; 
             } else {
                 document.getElementById('col-id').value = ''; document.getElementById('col-title').value = ''; document.getElementById('col-modal-buttons').innerHTML = `<button onclick="saveCol()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Создать</button>`; 
             }
@@ -795,13 +992,73 @@
 
         function popAssignees(sid = 0) { const s = document.getElementById('task-assignee'); s.innerHTML = '<option value="0">Без исполнителя</option>'; currentBoard.member_associations.forEach(m => { s.innerHTML += `<option value="${m.user.id}" ${m.user.id === sid ? 'selected' : ''}>${m.user.username}</option>`; }); }
         
-        function openCreateTaskModal() { document.getElementById('task-id').value = ''; document.getElementById('task-title').value = ''; document.getElementById('task-desc').value = ''; document.getElementById('task-attachments-list').innerHTML = ''; popAssignees(); document.getElementById('upload-file-btn').style.display = 'none'; document.getElementById('task-modal-buttons').innerHTML = `<button onclick="saveTask()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold">Создать задачу</button>`; toggleModal('task-modal'); }
-        function openEditTaskModal(t) { document.getElementById('task-id').value = t.id; document.getElementById('task-title').value = t.title; document.getElementById('task-desc').value = t.description || ''; document.getElementById('task-priority').value = (t.priority || 'MEDIUM').toUpperCase(); popAssignees(t.assignee_id); document.getElementById('upload-file-btn').style.display = 'block'; const al = document.getElementById('task-attachments-list'); al.innerHTML = ''; (t.attachments || []).forEach(a => { al.innerHTML += `<a href="${a.file_url}" target="_blank" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded-lg border border-blue-200 text-xs font-bold transition">📎 ${a.file_name}</a>`; }); document.getElementById('task-modal-buttons').innerHTML = `<button onclick="updateTask()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500">Сохранить</button><button onclick="deleteTask()" class="bg-red-50 text-red-600 px-6 rounded-xl font-bold hover:bg-red-100">Удалить</button>`; toggleModal('task-modal'); }
+        function openCreateTaskModal() { 
+            document.getElementById('task-id').value = ''; document.getElementById('task-title').value = ''; document.getElementById('task-desc').value = ''; 
+            popAssignees(); 
+            document.getElementById('upload-file-btn').classList.add('hidden');
+            document.getElementById('task-attachment-hint').classList.remove('hidden');
+            document.getElementById('task-attachments-list').innerHTML = ''; 
+            document.getElementById('task-comments-section').classList.add('hidden');
+            document.getElementById('task-modal-buttons').innerHTML = `<button onclick="saveTask()" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold hover:bg-emerald-600 transition">Создать задачу</button>`; 
+            toggleModal('task-modal'); 
+        }
         
-        async function saveTask() { const aid = parseInt(document.getElementById('task-assignee').value); const res = await fetch(`/api/v1/tasks?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, column_id: currentBoard.columns[0].id, assignee_id: aid > 0 ? aid : null}) }); if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка создания задачи."); }
+        function openEditTaskModal(t) { 
+            document.getElementById('task-id').value = t.id; document.getElementById('task-title').value = t.title; document.getElementById('task-desc').value = t.description || ''; document.getElementById('task-priority').value = (t.priority || 'MEDIUM').toUpperCase(); 
+            popAssignees(t.assignee_id); 
+            document.getElementById('upload-file-btn').classList.remove('hidden'); 
+            document.getElementById('task-attachment-hint').classList.add('hidden');
+            
+            const al = document.getElementById('task-attachments-list'); al.innerHTML = ''; 
+            (t.attachments || []).forEach(a => { al.innerHTML += `<a href="${a.file_url}" target="_blank" class="bg-indigo-50 text-indigo-600 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30 px-3 py-1 rounded-lg text-xs font-bold transition hover:bg-indigo-100 dark:hover:bg-indigo-500/40">📎 ${a.file_name}</a>`; }); 
+            
+            // Комментарии
+            document.getElementById('task-comments-section').classList.remove('hidden');
+            const cl = document.getElementById('task-comments-list'); cl.innerHTML = '';
+            (t.comments || []).forEach(c => {
+                cl.innerHTML += `
+                <div class="flex gap-3 text-sm">
+                    <div class="avatar-circle w-8 h-8 flex-shrink-0 text-xs" style="${c.user.avatar_url ? `background-image:url(${c.user.avatar_url});color:transparent` : ''}">${c.user.username.charAt(0).toUpperCase()}</div>
+                    <div class="flex-1 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-slate-900 dark:text-white">${c.user.username}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-slate-400">${new Date(c.created_at).toLocaleString('ru-RU')}</span>
+                                <button onclick="replyToComment('${c.user.username}')" class="text-indigo-500 hover:text-indigo-600 font-bold text-xs transition">Ответить</button>
+                            </div>
+                        </div>
+                        <p class="text-slate-700 dark:text-slate-300 break-words">${c.text}</p>
+                    </div>
+                </div>`;
+            });
+
+            document.getElementById('task-modal-buttons').innerHTML = `<button onclick="updateTask()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Сохранить</button><button onclick="deleteTask()" class="bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20 transition px-6 rounded-xl font-bold">Удалить</button>`; 
+            toggleModal('task-modal'); 
+        }
+        
+        function replyToComment(username) {
+            const input = document.getElementById('new-comment-text');
+            input.value += `@${username}, `;
+            input.focus();
+        }
+
+        async function saveComment() {
+            const text = document.getElementById('new-comment-text').value;
+            const tid = document.getElementById('task-id').value;
+            if(!text.trim()) return;
+            const res = await fetch(`/api/v1/tasks/${tid}/comments?user_id=${currentUser.id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})});
+            if(res.ok) {
+                document.getElementById('new-comment-text').value = '';
+                await loadBoardView(currentBoard.id);
+                const updatedTask = currentBoard.columns.flatMap(c=>c.tasks).find(t => t.id == tid);
+                openEditTaskModal(updatedTask);
+            }
+        }
+
+        async function saveTask() { const aid = parseInt(document.getElementById('task-assignee').value); const res = await fetch(`/api/v1/tasks?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, column_id: currentBoard.columns[0].id, assignee_id: aid > 0 ? aid : null}) }); if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка создания."); }
         async function updateTask() { const aid = parseInt(document.getElementById('task-assignee').value); const res = await fetch(`/api/v1/tasks/${document.getElementById('task-id').value}?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: document.getElementById('task-title').value, description: document.getElementById('task-desc').value, priority: document.getElementById('task-priority').value, assignee_id: aid}) }); if(res.ok) { toggleModal('task-modal'); await loadBoardView(currentBoard.id); } else alert("Ошибка сохранения."); }
         async function deleteTask() { if(!confirm('Удалить задачу?')) return; await fetch(`/api/v1/tasks/${document.getElementById('task-id').value}?user_id=${currentUser.id}`, {method: 'DELETE'}); toggleModal('task-modal'); await loadBoardView(currentBoard.id); }
-        async function uploadTaskFile(e) { const f = e.target.files[0], tid = document.getElementById('task-id').value; if(!f || !tid) return; const fd = new FormData(); fd.append('file', f); await fetch(`/api/v1/tasks/${tid}/attachments?user_id=${currentUser.id}`, {method: 'POST', body: fd}); await loadBoardView(currentBoard.id); toggleModal('task-modal'); }
+        async function uploadTaskFile(e) { const f = e.target.files[0], tid = document.getElementById('task-id').value; if(!f || !tid) return; const fd = new FormData(); fd.append('file', f); await fetch(`/api/v1/tasks/${tid}/attachments?user_id=${currentUser.id}`, {method: 'POST', body: fd}); await loadBoardView(currentBoard.id); const updatedTask = currentBoard.columns.flatMap(c=>c.tasks).find(t => t.id == tid); openEditTaskModal(updatedTask); }
         
         function allowDrop(ev) { ev.preventDefault(); }
         async function drop(ev, colId) { ev.preventDefault(); await fetch(`/api/v1/tasks/${ev.dataTransfer.getData('text')}?column_id=${colId}&user_id=${currentUser.id}`, { method: 'PATCH' }); await loadBoardView(currentBoard.id); }
