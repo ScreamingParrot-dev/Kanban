@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Система управления проектами</title>
-    <!-- Включение поддержки тем в Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' }
@@ -69,8 +68,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="min-h-screen font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
-    <!-- Инициализация темы -->
+<body class="min-h-screen font-sans bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300">
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
@@ -79,7 +77,6 @@
         }
     </script>
 
-    <!-- НАВИГАЦИЯ -->
     <nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center sticky top-0 z-50 transition-colors duration-300">
         <div class="flex items-center gap-4">
             <a href="#/dashboard" class="flex items-center gap-3 cursor-pointer">
@@ -91,10 +88,7 @@
             </div>
         </div>
         <div id="auth-section" class="flex items-center gap-4">
-            <!-- Кнопка переключения темы -->
-            <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Переключить тему">
-                🌓
-            </button>
+            <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Переключить тему">🌓</button>
 
             <div id="user-profile" class="hidden flex items-center gap-4">
                 <a href="#/admin" id="admin-btn" class="hidden text-sm font-bold bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 px-3 py-1.5 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-500/30 transition">★ Админ</a>
@@ -112,7 +106,6 @@
     </nav>
 
     <main class="p-8 relative">
-        <!-- Всплывающая подсказка профиля -->
         <div id="user-tooltip" class="absolute hidden bg-white dark:bg-slate-800 text-slate-800 dark:text-white p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 w-64 pointer-events-none opacity-0 transition-colors">
             <div class="flex items-center gap-3 mb-3">
                 <div id="tt-avatar" class="avatar-circle w-12 h-12 text-lg"></div>
@@ -125,14 +118,12 @@
         </div>
 
         <div id="views-container">
-            <!-- ПРИВЕТСТВЕННЫЙ ЭКРАН -->
             <div id="view-welcome" class="view-section text-center py-20">
                 <h2 class="text-5xl font-black mb-6 drop-shadow-lg tracking-tight text-slate-900 dark:text-white transition-colors">Управляйте проектами легко</h2>
                 <p class="text-slate-600 dark:text-slate-300 max-w-lg mx-auto text-lg mb-8 transition-colors">Войдите в систему или создайте аккаунт.</p>
                 <button onclick="toggleModal('auth-modal')" class="bg-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg hover:bg-indigo-500 transition">Начать работу</button>
             </div>
 
-            <!-- ДАШБОРД -->
             <div id="view-dashboard" class="view-section max-w-6xl mx-auto">
                 <div class="flex justify-between items-end mb-8">
                     <h2 class="text-4xl font-black mb-2 text-slate-900 dark:text-white transition-colors">Ваши проекты</h2>
@@ -141,7 +132,6 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="boards-grid"></div>
             </div>
 
-            <!-- АДМИН ПАНЕЛЬ -->
             <div id="view-admin" class="view-section max-w-6xl mx-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-4xl font-black text-amber-500 dark:text-amber-400 drop-shadow-md mb-2 transition-colors">Панель администратора</h2>
@@ -172,8 +162,6 @@
                                     <div class="text-4xl font-black text-rose-500 dark:text-rose-400 transition-colors" id="stat-deleted-tasks">0</div>
                                 </div>
                             </div>
-                            
-                            <!-- Разделенные графики -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
                                     <h4 class="text-center font-bold mb-4 text-slate-600 dark:text-slate-300 transition-colors">Аудитория и Пространства</h4>
@@ -216,7 +204,6 @@
                 </div>
             </div>
 
-            <!-- ПРОФИЛЬ -->
             <div id="view-profile" class="view-section max-w-3xl mx-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-8 rounded-3xl shadow-2xl transition-colors">
                 <div class="flex justify-between items-center mb-8 border-b border-slate-200 dark:border-slate-700 pb-4">
                     <h2 class="text-3xl font-black text-slate-900 dark:text-white transition-colors">Профиль</h2>
@@ -238,13 +225,12 @@
                 </div>
             </div>
 
-            <!-- ДОСКА -->
             <div id="view-board" class="view-section">
                 <div class="flex justify-between items-end mb-8">
                     <div>
                         <div class="flex items-center gap-3 mb-2">
                             <h2 id="board-title" class="text-4xl font-black text-slate-900 dark:text-white transition-colors">Загрузка...</h2>
-                            <button onclick="openBoardSettings()" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-700 transition-colors" title="Настройки">⚙️</button>
+                            <button onclick="openBoardSettings()" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-2 bg-white dark:bg-white/5 rounded-lg border border-slate-300 dark:border-white/10 transition-colors" title="Настройки">⚙️</button>
                             <span id="user-role-badge" class="bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200 dark:border-indigo-500/30 transition-colors">РОЛЬ</span>
                         </div>
                     </div>
@@ -302,7 +288,7 @@
 
     <div id="board-settings-modal" class="modal" onclick="closeModalOnOutside(event, this)">
         <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[600px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white max-h-[80vh] overflow-y-auto transition-colors">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-200 dark:border-slate-700 pb-4 transition-colors">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4 transition-colors">
                 <h3 class="text-2xl font-black">Настройки доски</h3>
                 <button onclick="toggleModal('board-settings-modal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl font-bold transition-colors">&times;</button>
             </div>
@@ -326,7 +312,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно авторизации (Слайдер) -->
+    <!-- Обновленное окно входа/регистрации (Слайдер) -->
     <div id="auth-modal" class="modal" onclick="closeModalOnOutside(event, this)">
         <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[400px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white transition-colors">
             <div class="flex mb-6 border-b border-slate-200 dark:border-slate-700 transition-colors">
@@ -362,7 +348,6 @@
         </div>
     </div>
 
-    <!-- Обновленная модалка ЗАДАЧИ -->
     <div id="task-modal" class="modal" onclick="closeModalOnOutside(event, this)">
         <div class="bg-white dark:bg-slate-900 p-8 rounded-3xl w-[600px] shadow-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white max-h-[90vh] overflow-y-auto transition-colors">
             <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4 transition-colors">
@@ -376,7 +361,9 @@
                 
                 <div class="flex gap-4">
                     <select id="task-priority" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none transition-colors">
-                        <option value="LOW">Низкий приоритет</option><option value="MEDIUM" selected>Средний приоритет</option><option value="HIGH">Высокий приоритет</option>
+                        <option value="LOW">Низкий приоритет</option>
+                        <option value="MEDIUM" selected>Средний приоритет</option>
+                        <option value="HIGH">Высокий приоритет</option>
                     </select>
                     <select id="task-assignee" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none transition-colors">
                         <option value="0">Без исполнителя</option>
@@ -391,7 +378,6 @@
                     <button id="upload-file-btn" onclick="document.getElementById('file-upload').click()" class="hidden text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors px-4 py-2 rounded-lg font-bold border border-slate-300 dark:border-slate-600">📎 Прикрепить файл</button>
                 </div>
                 
-                <!-- Секция комментариев -->
                 <div id="task-comments-section" class="pt-4 border-t border-slate-100 dark:border-slate-800 hidden transition-colors">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-4 transition-colors">Комментарии</label>
                     <div id="task-comments-list" class="space-y-4 mb-4 max-h-40 overflow-y-auto pr-2"></div>
@@ -420,7 +406,9 @@
             <h3 class="text-xl font-black mb-6">Пригласить</h3>
             <input type="email" id="invite-email" placeholder="user@email.com" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl outline-none mb-4 focus:border-indigo-500 transition-colors">
             <select id="invite-role" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 p-3 rounded-xl mb-4 outline-none transition-colors">
-                <option value="MEMBER">Участник</option><option value="ADMIN">Админ</option><option value="VIEWER">Наблюдатель</option>
+                <option value="MEMBER">Участник</option>
+                <option value="ADMIN">Админ</option>
+                <option value="VIEWER">Наблюдатель</option>
             </select>
             <div class="flex gap-2">
                 <button onclick="sendInvite()" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">Отправить</button>
@@ -439,32 +427,39 @@
         let adminChartDoughnut = null;
         let adminUsersData = [];
 
-        // Функция переключения тем
+        // --- ЛОКАЛИЗАЦИЯ (ПЕРЕВОДЫ) ---
+        // Словари для отображения системных английских ключей на русском
+        const ROLE_NAMES = {
+            'OWNER': 'Владелец',
+            'ADMIN': 'Админ',
+            'MEMBER': 'Участник',
+            'VIEWER': 'Наблюдатель',
+            'UNKNOWN': 'Неизвестно'
+        };
+
+        const PRIORITY_NAMES = {
+            'LOW': 'Низкий',
+            'MEDIUM': 'Средний',
+            'HIGH': 'Высокий'
+        };
+
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
             localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-            // Если находимся на вкладке статистики админа, перерисовываем графики для новых цветов текста
             if (currentUser && currentUser.is_superuser && window.location.hash === '#/admin') renderAdminStats();
         }
 
         window.onload = () => { 
-            if (currentUser) { 
-                updateNavUI(); 
-                handleRoute(); 
-            } else { 
-                navigate('/welcome'); 
-            }
+            if (currentUser) { updateNavUI(); handleRoute(); } 
+            else { navigate('/welcome'); }
         };
         
         window.addEventListener('hashchange', handleRoute);
 
         // --- РОУТИНГ ---
         function navigate(path) { 
-            if(window.location.hash === path) {
-                handleRoute(); 
-            } else {
-                window.location.hash = path; 
-            }
+            if(window.location.hash === path) handleRoute(); 
+            else window.location.hash = path; 
         }
 
         function handleRoute() {
@@ -479,25 +474,13 @@
                 return; 
             }
 
-            if (hash === '#/welcome') { 
-                navigate('/dashboard'); 
-                return; 
-            }
+            if (hash === '#/welcome') { navigate('/dashboard'); return; }
 
             updateNavUI();
 
-            if (hash === '#/dashboard') { 
-                document.getElementById('view-dashboard').classList.add('active'); 
-                loadDashboard(); 
-            }
-            else if (hash === '#/profile') { 
-                document.getElementById('view-profile').classList.add('active'); 
-                loadProfile(); 
-            }
-            else if (hash === '#/admin') { 
-                document.getElementById('view-admin').classList.add('active'); 
-                loadAdmin(); 
-            }
+            if (hash === '#/dashboard') { document.getElementById('view-dashboard').classList.add('active'); loadDashboard(); }
+            else if (hash === '#/profile') { document.getElementById('view-profile').classList.add('active'); loadProfile(); }
+            else if (hash === '#/admin') { document.getElementById('view-admin').classList.add('active'); loadAdmin(); }
             else if (hash.startsWith('#/board/')) { 
                 document.getElementById('view-board').classList.add('active'); 
                 document.getElementById('board-nav-tools').classList.remove('hidden');
@@ -505,17 +488,15 @@
             }
         }
 
-        // --- МОДАЛЬНЫЕ ОКНА И UI ---
+        // --- UI ---
         function toggleModal(id) { document.getElementById(id).classList.toggle('active'); }
         function closeModalOnOutside(event, elem) { if (event.target === elem) elem.classList.remove('active'); }
 
         function setAvatarElement(el, user) {
             if(user && user.avatar_url) {
-                el.style.backgroundImage = `url(${user.avatar_url})`;
-                el.innerText = '';
+                el.style.backgroundImage = `url(${user.avatar_url})`; el.innerText = '';
             } else if (user && user.username) {
-                el.style.backgroundImage = '';
-                el.innerText = user.username.charAt(0).toUpperCase();
+                el.style.backgroundImage = ''; el.innerText = user.username.charAt(0).toUpperCase();
             }
         }
 
@@ -525,12 +506,7 @@
             document.getElementById('username-label').innerText = currentUser.username;
             document.getElementById('user-email-label').innerText = currentUser.email;
             setAvatarElement(document.getElementById('nav-avatar'), currentUser);
-            
-            if (currentUser.is_superuser) {
-                document.getElementById('admin-btn').classList.remove('hidden');
-            } else {
-                document.getElementById('admin-btn').classList.add('hidden');
-            }
+            document.getElementById('admin-btn').classList.toggle('hidden', !currentUser.is_superuser);
         }
 
         function switchAuthTab(tab) {
@@ -551,57 +527,26 @@
             try {
                 let payload = {};
                 if (type === 'login') {
-                    payload = {
-                        username_or_email: document.getElementById('login-identifier').value,
-                        password: document.getElementById('login-password').value
-                    };
+                    payload = { username_or_email: document.getElementById('login-identifier').value, password: document.getElementById('login-password').value };
                 } else {
-                    payload = {
-                        username: document.getElementById('reg-username').value,
-                        email: document.getElementById('reg-email').value,
-                        password: document.getElementById('reg-password').value
-                    };
+                    payload = { username: document.getElementById('reg-username').value, email: document.getElementById('reg-email').value, password: document.getElementById('reg-password').value };
                 }
 
-                const res = await fetch(`/api/v1/${type}`, { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify(payload) 
-                });
-                
+                const res = await fetch(`/api/v1/${type}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 if (res.ok) {
                     currentUser = await res.json();
                     localStorage.setItem('kanban_user', JSON.stringify(currentUser));
-                    updateNavUI(); 
-                    toggleModal('auth-modal'); 
-                    navigate('/dashboard');
-                } else { 
-                    const errorData = await res.json();
-                    alert(errorData.detail || 'Ошибка авторизации'); 
-                }
-            } catch (err) { alert("Ошибка соединения с сервером."); console.error(err); }
+                    updateNavUI(); toggleModal('auth-modal'); navigate('/dashboard');
+                } else { alert((await res.json()).detail || 'Ошибка авторизации'); }
+            } catch (err) { alert("Ошибка соединения."); }
         }
         
-        function logout() { 
-            localStorage.removeItem('kanban_user'); 
-            currentUser = null;
-            window.location.hash = '#/welcome';
-            handleRoute();
-        }
+        function logout() { localStorage.removeItem('kanban_user'); currentUser = null; window.location.hash = '#/welcome'; handleRoute(); }
 
         async function forgotPassword() {
             const email = document.getElementById('fp-email').value;
-            const res = await fetch('/api/v1/auth/forgot-password', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({email})
-            });
-            if(res.ok) { 
-                alert('Заявка отправлена администратору!'); 
-                toggleModal('forgot-password-modal'); 
-            } else { 
-                alert((await res.json()).detail); 
-            }
+            const res = await fetch('/api/v1/auth/forgot-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email})});
+            if(res.ok) { alert('Заявка отправлена администратору!'); toggleModal('forgot-password-modal'); } else { alert((await res.json()).detail); }
         }
 
         // --- ПРОФИЛЬ ---
@@ -614,61 +559,28 @@
 
         async function saveProfile() {
             const desc = document.getElementById('profile-desc').value;
-            const res = await fetch(`/api/v1/users/me?user_id=${currentUser.id}`, { 
-                method: 'PUT', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({description: desc}) 
-            });
-            if(res.ok) { 
-                currentUser = await res.json(); 
-                localStorage.setItem('kanban_user', JSON.stringify(currentUser)); 
-                alert('Профиль сохранен!'); 
-            }
+            const res = await fetch(`/api/v1/users/me?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({description: desc}) });
+            if(res.ok) { currentUser = await res.json(); localStorage.setItem('kanban_user', JSON.stringify(currentUser)); alert('Профиль сохранен!'); }
         }
 
         async function uploadAvatar(event) {
-            const file = event.target.files[0]; 
-            if(!file) return;
-            const formData = new FormData(); 
-            formData.append('file', file);
-            
-            const res = await fetch(`/api/v1/users/me/avatar?user_id=${currentUser.id}`, { 
-                method: 'POST', 
-                body: formData 
-            });
-            
-            if(res.ok) { 
-                currentUser = await res.json(); 
-                localStorage.setItem('kanban_user', JSON.stringify(currentUser)); 
-                loadProfile(); 
-                updateNavUI(); 
-            }
+            const file = event.target.files[0]; if(!file) return;
+            const formData = new FormData(); formData.append('file', file);
+            const res = await fetch(`/api/v1/users/me/avatar?user_id=${currentUser.id}`, { method: 'POST', body: formData });
+            if(res.ok) { currentUser = await res.json(); localStorage.setItem('kanban_user', JSON.stringify(currentUser)); loadProfile(); updateNavUI(); }
         }
 
         async function changePassword() {
-            const oldP = document.getElementById('cp-old').value;
-            const newP = document.getElementById('cp-new').value;
+            const oldP = document.getElementById('cp-old').value, newP = document.getElementById('cp-new').value;
             if(!oldP || !newP) return alert('Заполните поля');
-            
-            const res = await fetch(`/api/v1/users/me/password?user_id=${currentUser.id}`, { 
-                method: 'PUT', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({old_password:oldP, new_password:newP}) 
-            });
-            if(res.ok) { 
-                alert('Пароль изменен!'); 
-                toggleModal('change-password-modal'); 
-            } else {
-                alert((await res.json()).detail);
-            }
+            const res = await fetch(`/api/v1/users/me/password?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({old_password:oldP, new_password:newP}) });
+            if(res.ok) { alert('Пароль изменен!'); toggleModal('change-password-modal'); } else alert((await res.json()).detail);
         }
 
         // --- АДМИН ПАНЕЛЬ ---
         async function loadAdmin() {
             if(!currentUser.is_superuser) { navigate('/dashboard'); return; }
-            await renderAdminStats();
-            await loadAdminUsers();
-            await loadAdminRequests();
+            await renderAdminStats(); await loadAdminUsers(); await loadAdminRequests();
         }
 
         function switchAdminTab(tab, element) {
@@ -700,18 +612,9 @@
                         type: 'bar',
                         data: {
                             labels: ['Пользователи', 'Доски'],
-                            datasets: [{ 
-                                label: 'Количество', 
-                                data: [stats.total_users, stats.total_boards], 
-                                backgroundColor: ['#818cf8', '#34d399'] 
-                            }]
+                            datasets: [{ label: 'Количество', data: [stats.total_users, stats.total_boards], backgroundColor: ['#818cf8', '#34d399'] }]
                         },
-                        options: { 
-                            responsive: true, 
-                            plugins: { 
-                                legend: { display: false } 
-                            } 
-                        }
+                        options: { responsive: true, plugins: { legend: { display: false } } }
                     });
 
                     const ctxDough = document.getElementById('adminChartDoughnut').getContext('2d');
@@ -719,30 +622,19 @@
                     adminChartDoughnut = new Chart(ctxDough, {
                         type: 'doughnut',
                         data: {
-                            labels: ['Активные задачи', 'Удаленные задачи'],
-                            datasets: [{ 
-                                data: [stats.total_tasks, stats.total_deleted_tasks], 
-                                backgroundColor: ['#10b981', '#f43f5e'],
-                                borderWidth: isDark ? 2 : 0,
-                                borderColor: isDark ? '#1e293b' : '#ffffff'
-                            }]
+                            labels: ['Активные задачи', 'Завершенные задачи'],
+                            datasets: [{ data: [stats.total_tasks, stats.total_deleted_tasks], backgroundColor: ['#10b981', '#f43f5e'], borderWidth: isDark ? 2 : 0, borderColor: isDark ? '#1e293b' : '#ffffff' }]
                         },
-                        options: { 
-                            responsive: true, 
-                            plugins: { 
-                                legend: { position: 'bottom' } 
-                            } 
-                        }
+                        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
                     });
                 }
-            } catch (err) { console.error("Ошибка загрузки статистики:", err); }
+            } catch (err) { console.error(err); }
         }
 
         async function loadAdminUsers() {
             const res = await fetch(`/api/v1/admin/users?user_id=${currentUser.id}`);
             if(!res.ok) return;
-            adminUsersData = await res.json();
-            renderAdminUsersGrid();
+            adminUsersData = await res.json(); renderAdminUsersGrid();
         }
 
         function renderAdminUsersGrid() {
@@ -750,31 +642,15 @@
             const sort = document.getElementById('admin-sort-users')?.value || 'id_asc';
             
             let filtered = adminUsersData.filter(u => u.username.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
-            
             filtered.sort((a, b) => {
-                if(sort === 'id_asc') return a.id - b.id;
-                if(sort === 'id_desc') return b.id - a.id;
-                if(sort === 'name_asc') return a.username.localeCompare(b.username);
-                if(sort === 'name_desc') return b.username.localeCompare(a.username);
-                return 0;
+                if(sort === 'id_asc') return a.id - b.id; if(sort === 'id_desc') return b.id - a.id;
+                if(sort === 'name_asc') return a.username.localeCompare(b.username); if(sort === 'name_desc') return b.username.localeCompare(a.username); return 0;
             });
 
-            const tbody = document.getElementById('admin-users-table'); 
-            tbody.innerHTML = '';
-            
+            const tbody = document.getElementById('admin-users-table'); tbody.innerHTML = '';
             filtered.forEach(u => {
-                const roleBadge = u.is_superuser ? '<span class="bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-500 px-2 py-1 rounded text-xs">Админ</span>' : '<span class="bg-slate-200 text-slate-700 dark:bg-slate-700 px-2 py-1 rounded text-xs dark:text-slate-300">Юзер</span>';
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
-                        <td class="py-3 px-4 font-mono text-xs text-slate-500">#${u.id}</td>
-                        <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${u.username}</td>
-                        <td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${u.email}</td>
-                        <td class="py-3 px-4">${roleBadge}</td>
-                        <td class="py-3 px-4 text-right">
-                            <button onclick="adminOpenResetPwd(${u.id})" class="text-blue-500 dark:text-blue-400 hover:underline text-sm mr-3">Пароль</button>
-                            ${u.id !== currentUser.id ? `<button onclick="adminDeleteUser(${u.id})" class="text-red-500 hover:underline text-sm">Удалить</button>` : ''}
-                        </td>
-                    </tr>`;
+                const roleBadge = u.is_superuser ? '<span class="bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-500 px-2 py-1 rounded text-xs">Админ (Система)</span>' : '<span class="bg-slate-200 text-slate-700 dark:bg-slate-700 px-2 py-1 rounded text-xs dark:text-slate-300">Юзер</span>';
+                tbody.innerHTML += `<tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition"><td class="py-3 px-4 font-mono text-xs text-slate-500">#${u.id}</td><td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${u.username}</td><td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${u.email}</td><td class="py-3 px-4">${roleBadge}</td><td class="py-3 px-4 text-right"><button onclick="adminOpenResetPwd(${u.id})" class="text-blue-500 dark:text-blue-400 hover:underline text-sm mr-3">Пароль</button>${u.id !== currentUser.id ? `<button onclick="adminDeleteUser(${u.id})" class="text-red-500 hover:underline text-sm">Удалить</button>` : ''}</td></tr>`;
             });
         }
 
@@ -785,52 +661,21 @@
             const tbody = document.getElementById('admin-requests-table'); tbody.innerHTML = '';
             requests.forEach(r => {
                 const date = new Date(r.created_at).toLocaleString('ru-RU');
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
-                        <td class="py-3 px-4 font-mono text-xs text-slate-500">REQ-${r.id}</td>
-                        <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${r.user.username}</td>
-                        <td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${r.user.email}</td>
-                        <td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${date}</td>
-                        <td class="py-3 px-4 text-right">
-                            <button onclick="adminOpenResolveRequest(${r.id})" class="bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 px-3 py-1 rounded dark:hover:bg-emerald-500/30 text-sm font-bold transition">Установить пароль</button>
-                        </td>
-                    </tr>`;
+                tbody.innerHTML += `<tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition"><td class="py-3 px-4 font-mono text-xs text-slate-500">REQ-${r.id}</td><td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${r.user.username}</td><td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${r.user.email}</td><td class="py-3 px-4 text-slate-500 dark:text-slate-400 text-sm">${date}</td><td class="py-3 px-4 text-right"><button onclick="adminOpenResolveRequest(${r.id})" class="bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 px-3 py-1 rounded dark:hover:bg-emerald-500/30 text-sm font-bold transition">Установить пароль</button></td></tr>`;
             });
-            if(requests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">Нет активных заявок</td></tr>';
-            }
+            if(requests.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">Нет активных заявок</td></tr>';
         }
 
-        function adminOpenResolveRequest(reqId) {
-            document.getElementById('admin-req-id').value = reqId;
-            document.getElementById('admin-req-pwd').value = Math.random().toString(36).slice(-8);
-            toggleModal('admin-resolve-req-modal');
-        }
-
+        function adminOpenResolveRequest(reqId) { document.getElementById('admin-req-id').value = reqId; document.getElementById('admin-req-pwd').value = Math.random().toString(36).slice(-8); toggleModal('admin-resolve-req-modal'); }
         async function adminResolveRequestSubmit() {
-            const reqId = document.getElementById('admin-req-id').value;
-            const pwd = document.getElementById('admin-req-pwd').value;
-            const res = await fetch(`/api/v1/admin/password-requests/${reqId}/resolve?user_id=${currentUser.id}`, { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({new_password: pwd}) 
-            });
-            if(res.ok) { 
-                alert('Пароль обновлен, заявка закрыта! Сообщите новый пароль пользователю.'); 
-                toggleModal('admin-resolve-req-modal'); 
-                loadAdminRequests();
-            } else { alert('Ошибка при обработке заявки'); }
+            const reqId = document.getElementById('admin-req-id').value, pwd = document.getElementById('admin-req-pwd').value;
+            const res = await fetch(`/api/v1/admin/password-requests/${reqId}/resolve?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({new_password: pwd}) });
+            if(res.ok) { alert('Пароль обновлен, заявка закрыта! Сообщите новый пароль пользователю.'); toggleModal('admin-resolve-req-modal'); loadAdminRequests(); } else { alert('Ошибка при обработке заявки'); }
         }
 
-        function adminOpenResetPwd(uid) {
-            document.getElementById('admin-reset-uid').value = uid;
-            document.getElementById('admin-new-pwd').value = Math.random().toString(36).slice(-8);
-            toggleModal('admin-reset-pwd-modal');
-        }
-
+        function adminOpenResetPwd(uid) { document.getElementById('admin-reset-uid').value = uid; document.getElementById('admin-new-pwd').value = Math.random().toString(36).slice(-8); toggleModal('admin-reset-pwd-modal'); }
         async function adminResetPasswordSubmit() {
-            const uid = document.getElementById('admin-reset-uid').value;
-            const pwd = document.getElementById('admin-new-pwd').value;
+            const uid = document.getElementById('admin-reset-uid').value, pwd = document.getElementById('admin-new-pwd').value;
             const res = await fetch(`/api/v1/admin/users/${uid}/password?user_id=${currentUser.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({new_password: pwd}) });
             if(res.ok) { alert('Пароль изменен!'); toggleModal('admin-reset-pwd-modal'); } else alert('Ошибка при смене пароля');
         }
@@ -845,68 +690,34 @@
         async function loadDashboard() {
             try {
                 const res = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
-                if (!res.ok) {
-                    if (res.status === 401) logout();
-                    throw new Error("HTTP " + res.status);
-                }
+                if (!res.ok) { if (res.status === 401) logout(); throw new Error(); }
                 boards = await res.json();
                 const grid = document.getElementById('boards-grid'); grid.innerHTML = '';
-                
-                if (!Array.isArray(boards) || boards.length === 0) { 
-                    grid.innerHTML = '<div class="col-span-full text-slate-400 py-10 text-center">У вас пока нет досок. Создайте первую!</div>'; 
-                    return; 
-                }
-                
+                if (!Array.isArray(boards) || boards.length === 0) { grid.innerHTML = '<div class="col-span-full text-slate-400 py-10 text-center">У вас пока нет досок. Создайте первую!</div>'; return; }
                 boards.forEach(b => {
                     const role = (b.member_associations.find(m => m.user.id === currentUser.id) || {}).role || 'VIEWER';
-                    const rc = {
-                        'OWNER':'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30',
-                        'ADMIN':'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30',
-                        'MEMBER':'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
-                    }[role] || 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30';
-                    
-                    grid.innerHTML += `
-                        <div class="board-card bg-white/80 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-40" onclick="navigate('/board/${b.id}')">
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <h3 class="text-xl font-bold text-slate-900 dark:text-white truncate">${b.title}</h3>
-                                    <span class="text-[10px] px-2 rounded border uppercase ${rc}">${role}</span>
-                                </div>
-                            </div>
-                            <div class="text-xs text-slate-500 mt-4">Колонок: ${b.columns.length} | Участников: ${b.member_associations.length}</div>
-                        </div>`;
+                    // ПЕРЕВОД: Использование локализованных ролей для бейджей на дашборде
+                    const translatedRole = ROLE_NAMES[role] || role;
+
+                    const rc = {'OWNER':'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30','ADMIN':'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30','MEMBER':'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'}[role] || 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30';
+                    grid.innerHTML += `<div class="board-card bg-white/80 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-40" onclick="navigate('/board/${b.id}')"><div><div class="flex justify-between mb-2"><h3 class="text-xl font-bold text-slate-900 dark:text-white truncate">${b.title}</h3><span class="text-[10px] px-2 rounded border uppercase ${rc}">${translatedRole}</span></div></div><div class="text-xs text-slate-500 mt-4">Колонок: ${b.columns.length} | Участников: ${b.member_associations.length}</div></div>`;
                 });
-            } catch (err) { 
-                console.error(err); 
-                document.getElementById('boards-grid').innerHTML = '<div class="col-span-full text-red-400 py-10 text-center">Ошибка загрузки досок. Возможно, истекла сессия авторизации.</div>'; 
-            }
+            } catch (err) { document.getElementById('boards-grid').innerHTML = '<div class="col-span-full text-red-500 py-10 text-center">Ошибка загрузки досок.</div>'; }
         }
-        
         function openCreateBoardModal() { document.getElementById('new-board-title').value = ''; toggleModal('create-board-modal'); }
-        async function createBoard() {
-            const t = document.getElementById('new-board-title').value; if(!t) return;
-            await fetch(`/api/v1/boards?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: t, description: ""}) });
-            toggleModal('create-board-modal'); loadDashboard();
-        }
+        async function createBoard() { const t = document.getElementById('new-board-title').value; if(!t) return; await fetch(`/api/v1/boards?user_id=${currentUser.id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: t, description: ""}) }); toggleModal('create-board-modal'); loadDashboard(); }
 
         // --- ДОСКА ---
         async function loadBoardView(id) {
             try {
                 const res = await fetch(`/api/v1/boards?user_id=${currentUser.id}`);
-                if (!res.ok) {
-                    if (res.status === 401) logout();
-                    throw new Error();
-                }
+                if (!res.ok) { if (res.status === 401) logout(); throw new Error(); }
                 boards = await res.json(); currentBoard = boards.find(b => b.id === id);
                 if (!currentBoard) { navigate('/dashboard'); return; }
-                
                 currentRole = (currentBoard.member_associations.find(m => m.user.id === currentUser.id) || {}).role || 'VIEWER';
                 currentBoard.member_associations.forEach(m => globalUsersCache[m.user.id] = m.user);
                 renderBoard();
-            } catch (err) { 
-                console.error(err);
-                document.getElementById('board-columns').innerHTML = '<div class="text-red-400">Ошибка при загрузке доски. Возможно, истекла сессия авторизации.</div>'; 
-            }
+            } catch (err) { document.getElementById('board-columns').innerHTML = '<div class="text-red-500">Ошибка при загрузке доски.</div>'; }
         }
 
         function openBoardSettings() {
@@ -915,21 +726,19 @@
             document.getElementById('board-admin-controls').style.display = isAd ? 'block' : 'none';
             document.getElementById('board-danger-zone').style.display = currentRole === 'OWNER' ? 'block' : 'none';
             document.getElementById('settings-invite-btn').style.display = isAd ? 'block' : 'none';
-            
             const list = document.getElementById('settings-members-list'); list.innerHTML = '';
             currentBoard.member_associations.forEach(m => {
                 const isMe = m.user.id === currentUser.id;
-                let cHtml = `<span class="text-xs bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">${m.role}</span>`;
-                if(isAd && !isMe) {
-                    cHtml = `
-                    <div class="flex gap-2">
-                        <select onchange="changeRole(${m.user.id}, this.value)" class="text-xs border border-slate-300 dark:border-slate-600 p-1 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
-                            <option ${m.role==='ADMIN'?'selected':''}>ADMIN</option>
-                            <option ${m.role==='MEMBER'?'selected':''}>MEMBER</option>
-                            <option ${m.role==='VIEWER'?'selected':''}>VIEWER</option>
-                        </select>
-                        <button onclick="kickUser(${m.user.id})" class="text-red-500 font-bold hover:text-red-700">✖</button>
-                    </div>`;
+                // ПЕРЕВОД: Использование локализованных ролей в настройках
+                const translatedRole = ROLE_NAMES[m.role] || m.role;
+
+                let cHtml = `<span class="text-xs bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">${translatedRole}</span>`;
+                if(isAd && !isMe) { 
+                    cHtml = `<div class="flex gap-2"><select onchange="changeRole(${m.user.id}, this.value)" class="text-xs border border-slate-300 dark:border-slate-600 p-1 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                        <option value="ADMIN" ${m.role==='ADMIN'?'selected':''}>Админ</option>
+                        <option value="MEMBER" ${m.role==='MEMBER'?'selected':''}>Участник</option>
+                        <option value="VIEWER" ${m.role==='VIEWER'?'selected':''}>Наблюдатель</option>
+                    </select><button onclick="kickUser(${m.user.id})" class="text-red-500 font-bold hover:text-red-700">✖</button></div>`; 
                 }
                 list.innerHTML += `<div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700"><div class="flex items-center gap-3"><div class="avatar-circle w-8 h-8 text-xs" onmouseenter="showTooltip(event,${m.user.id},'${m.role}')" onmouseleave="hideTooltip()" style="${m.user.avatar_url ? `background-image:url(${m.user.avatar_url});color:transparent` : ''}">${m.user.username.charAt(0)}</div><div><div class="text-sm font-bold text-slate-900 dark:text-white">${m.user.username}</div>${isAd ? `<div class="text-[10px] text-slate-500">${m.user.email}</div>` : ''}</div></div>${cHtml}</div>`;
             });
@@ -945,12 +754,12 @@
         // --- УПРАВЛЕНИЕ КОЛОНКАМИ И ЗАДАЧАМИ ---
         function renderBoard() {
             document.getElementById('board-title').innerText = currentBoard.title;
-            document.getElementById('user-role-badge').innerText = currentRole;
-            const canTask = ['OWNER','ADMIN','MEMBER'].includes(currentRole);
+            // ПЕРЕВОД: Использование локализованных ролей в шапке доски
+            document.getElementById('user-role-badge').innerText = ROLE_NAMES[currentRole] || currentRole;
             
+            const canTask = ['OWNER','ADMIN','MEMBER'].includes(currentRole);
             document.getElementById('add-col-btn').style.display = ['OWNER','ADMIN'].includes(currentRole) ? 'block' : 'none';
             document.getElementById('add-task-btn').style.display = canTask ? 'block' : 'none';
-            
             const cont = document.getElementById('board-columns'); cont.innerHTML = '';
             
             (currentBoard.columns || []).sort((a,b) => a.order - b.order).forEach(col => {
@@ -966,7 +775,11 @@
             const card = document.createElement('div'); card.className = 'task-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm';
             if(canTask) { card.draggable = true; card.onclick = (e) => { if(!e.target.closest('.avatar-circle')) openEditTaskModal(t); }; card.ondragstart = (e) => e.dataTransfer.setData('text', t.id); }
             const asHtml = t.assignee ? `<div class="avatar-circle w-6 h-6 text-[10px]" onmouseenter="showTooltip(event,${t.assignee.id},'Участник')" onmouseleave="hideTooltip()" style="${t.assignee.avatar_url ? `background-image:url(${t.assignee.avatar_url});color:transparent` : ''}">${t.assignee.username.charAt(0)}</div>` : '';
-            card.innerHTML = `<div class="flex justify-between items-start mb-3"><span class="priority-badge priority-${(t.priority || 'MEDIUM').toLowerCase()}">${t.priority}</span>${asHtml}</div><div class="font-bold leading-tight text-slate-900 dark:text-white">${t.title}</div>${t.description ? `<div class="text-xs text-slate-500 mt-2 line-clamp-2">${t.description}</div>` : ''}${t.attachments && t.attachments.length ? `<div class="text-[10px] text-blue-500 mt-2 font-bold">📎 Вложений: ${t.attachments.length}</div>` : ''}${(t.comments && t.comments.length) ? `<div class="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 font-bold">💬 Комментариев: ${t.comments.length}</div>` : ''}`;
+            
+            // ПЕРЕВОД: Использование локализованных приоритетов на карточках задач
+            const translatedPriority = PRIORITY_NAMES[t.priority] || t.priority;
+            
+            card.innerHTML = `<div class="flex justify-between items-start mb-3"><span class="priority-badge priority-${(t.priority || 'MEDIUM').toLowerCase()}">${translatedPriority}</span>${asHtml}</div><div class="font-bold leading-tight text-slate-900 dark:text-white">${t.title}</div>${t.description ? `<div class="text-xs text-slate-500 mt-2 line-clamp-2">${t.description}</div>` : ''}${t.attachments && t.attachments.length ? `<div class="text-[10px] text-blue-500 mt-2 font-bold">📎 Вложений: ${t.attachments.length}</div>` : ''}${(t.comments && t.comments.length) ? `<div class="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 font-bold">💬 Комментариев: ${t.comments.length}</div>` : ''}`;
             document.getElementById(`col-${colId}`).appendChild(card);
         }
 
@@ -1012,7 +825,6 @@
             const al = document.getElementById('task-attachments-list'); al.innerHTML = ''; 
             (t.attachments || []).forEach(a => { al.innerHTML += `<a href="${a.file_url}" target="_blank" class="bg-indigo-50 text-indigo-600 border border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30 px-3 py-1 rounded-lg text-xs font-bold transition hover:bg-indigo-100 dark:hover:bg-indigo-500/40">📎 ${a.file_name}</a>`; }); 
             
-            // Комментарии
             document.getElementById('task-comments-section').classList.remove('hidden');
             const cl = document.getElementById('task-comments-list'); cl.innerHTML = '';
             (t.comments || []).forEach(c => {

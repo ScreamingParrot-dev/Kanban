@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: leon1511
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5438"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Сохраняет данные БД
+
+  web:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    # Замени команду запуска на ту, что у тебя в Dockerfile (если отличается)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      # Пробрасываем локальные папки внутрь контейнера!
+      # Теперь файлы физически лежат на устройстве, а контейнер просто имеет к ним доступ.
+      - ./app/static/media:/app/app/static/media
+      - ./app/static/uploads:/app/app/static/uploads
+
+volumes:
+  postgres_data:
